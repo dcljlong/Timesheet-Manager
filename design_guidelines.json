@@ -1,0 +1,66 @@
+{
+  "theme": "Light",
+  "archetype": "4 (Swiss & High-Contrast)",
+  "fonts": {
+    "heading": "Cabinet Grotesk",
+    "body": "IBM Plex Sans",
+    "weights": ["400", "500", "700"]
+  },
+  "colors": {
+    "primary": "#0A0A0A",
+    "secondary": "#2563EB",
+    "accent": "#FF4500",
+    "background": "#FAFAFA",
+    "surface": "#FFFFFF",
+    "border": "#E5E7EB",
+    "text_primary": "#111827",
+    "text_secondary": "#4B5563",
+    "danger": "#EF4444",
+    "success": "#10B981"
+  },
+  "typography": {
+    "h1": "text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight",
+    "h2": "text-2xl sm:text-3xl font-semibold tracking-tight",
+    "h3": "text-xl sm:text-2xl font-semibold",
+    "body": "text-base leading-relaxed",
+    "small": "text-sm text-gray-500",
+    "overline": "text-xs font-semibold uppercase tracking-[0.2em]"
+  },
+  "spacing": {
+    "container": "p-6 md:p-8 lg:p-12",
+    "gap": "gap-4 md:gap-6",
+    "card_padding": "p-6"
+  },
+  "components": {
+    "card": "bg-white border border-gray-200 rounded-sm shadow-sm transition-all hover:shadow-md",
+    "button_primary": "bg-gray-900 text-white hover:bg-gray-800 hover:text-white px-6 py-2 rounded-sm transition-colors",
+    "button_secondary": "bg-transparent border border-gray-900 text-gray-900 hover:bg-gray-100 px-6 py-2 rounded-sm transition-colors",
+    "input": "border border-gray-300 rounded-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent px-4 py-2",
+    "table": "w-full text-left border-collapse",
+    "table_header": "bg-gray-50 border-y border-gray-200 text-sm font-semibold p-4",
+    "table_cell": "p-4 border-b border-gray-100 text-sm"
+  },
+  "visual_enhancers": {
+    "grid_borders": "The Technical Look: Expose the skeleton. Container uses border-collapse. Items have subtle right/bottom borders. Useful for timesheet data entry.",
+    "hover_states": "Buttons and links must explicitly set hover colors (e.g., hover:bg-gray-800 hover:text-white). Focus states must have high contrast."
+  },
+  "media": {
+    "hero_background": {
+      "url": "https://images.unsplash.com/photo-1766936587760-fcc13617ca3b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTN8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBidWlsZGluZyUyMGFyY2hpdGVjdHVyZSUyMGNvbnN0cnVjdGlvbnxlbnwwfHx8fDE3NzUyMTEyNDB8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Modern building under construction with yellow accents. Used for the login page background.",
+      "category": "hero"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Use pure HTML/Tailwind for structural layouts and Shadcn components for complex interactions like DatePicker, Select, Forms.",
+    "Write all React code using .js extension (JSX is supported in .js files for this environment), NOT .tsx.",
+    "Include data-testid on ALL interactive and informational elements (e.g., data-testid='login-submit-button').",
+    "Implement the 3 roles: Employee, Project Manager, Admin.",
+    "Ensure timesheet allows multiple jobs per day, 30min/1hr lunch select, task codes dropdown with 'add new' functionality, running totals, and week ending date.",
+    "Implement save default from last entry functionality.",
+    "Include an audible notification mechanism for submission reminders.",
+    "Include a PDF export function for the timesheets.",
+    "Ensure strict adherence to Archetype 4: Swiss & High-Contrast layout. Do not use soft Neumorphic shadows, stick to flat/1px borders.",
+    "Do not use heavily rounded card components where a data-dense grid or table is more suitable. Emphasize data legibility."
+  ]
+}
