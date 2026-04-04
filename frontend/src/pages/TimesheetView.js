@@ -1,0 +1,427 @@
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { useAuth, API, formatApiError } from "../App";
+import axios from "axios";
+import { toast } from "sonner";
+import { Button } from "../components/ui/button";
+import { Textarea } from "../components/ui/textarea";
+import { ArrowLeft, Download, CheckCircle, XCircle, Edit } from "lucide-react";
+import { format } from "date-fns";
+import Layout from "../components/Layout";
+import SignaturePad from "../components/SignaturePad";
+
+export default function TimesheetView() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [timesheet, setTimesheet] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [projectManagers, setPMs] = useState([]);
+  const [approving, setApproving] = useState(false);
+  const [rejectComment, setRejectComment] = useState("");
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [pmSignature, setPmSignature] = useState(null);
+  const [showApproveModal, setShowApproveModal] = useState(false);
+
+  useEffect(() => {
+    fetchData();
+  }, [id]);
+
+  const fetchData = async () => {
+    try {
+      const [tsRes, pmsRes] = await Promise.all([
+        axios.get(`${API}/timesheets/${id}`, { withCredentials: true }),
+        axios.get(`${API}/project-managers`, { withCredentials: true })
+      ]);
+      setTimesheet(tsRes.data);
+      setPMs(pmsRes.data);
+    } catch (err) {
+      toast.error("Failed to load timesheet");
+      navigate("/employee");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getPmName = (pmId) => {
+    const pm = projectManagers.find(p => p.id === pmId);
+    return pm ? `${pm.initials} - ${pm.name}` : pmId;
+  };
+
+  const getStatusBadge = (status) => {
+    const badges = {
+      submitted: "badge badge-submitted",
+      pm_approved: "badge badge-pm-approved",
+      approved: "badge badge-approved",
+      rejected: "badge badge-rejected"
+    };
+    const labels = {
+      submitted: "Pending PM Approval",
+      pm_approved: "Pending Admin Approval",
+      approved: "Approved",
+      rejected: "Rejected"
+    };
+    return <span className={badges[status] || "badge"}>{labels[status] || status}</span>;
+  };
+
+  const canPMApprove = () => {
+    if (!timesheet) return false;
+    return (user?.role === "project_manager" || user?.role === "admin") && 
+           timesheet.status === "submitted";
+  };
+
+  const canAdminApprove = () => {
+    if (!timesheet) return false;
+    return user?.role === "admin" && timesheet.status === "pm_approved";
+  };
+
+  const handlePMApprove = async () => {
+    if (!pmSignature) {
+      toast.error("Please sign before approving");
+      return;
+    }
+    setApproving(true);
+    try {
+      await axios.post(`${API}/timesheets/${id}/pm-approve`, {
+        action: "approve",
+        signature: pmSignature
+      }, { withCredentials: true });
+      toast.success("Timesheet approved");
+      setShowApproveModal(false);
+      fetchData();
+    } catch (err) {
+      toast.error(formatApiError(err));
+    } finally {
+      setApproving(false);
+    }
+  };
+
+  const handleAdminApprove = async () => {
+    setApproving(true);
+    try {
+      await axios.post(`${API}/timesheets/${id}/admin-approve`, {
+        action: "approve"
+      }, { withCredentials: true });
+      toast.success("Timesheet fully approved");
+      fetchData();
+    } catch (err) {
+      toast.error(formatApiError(err));
+    } finally {
+      setApproving(false);
+    }
+  };
+
+  const handleReject = async () => {
+    setApproving(true);
+    try {
+      const endpoint = user?.role === "admin" && timesheet.status === "pm_approved" 
+        ? "admin-approve" 
+        : "pm-approve";
+      await axios.post(`${API}/timesheets/${id}/${endpoint}`, {
+        action: "reject",
+        comment: rejectComment
+      }, { withCredentials: true });
+      toast.success("Timesheet rejected");
+      setShowRejectModal(false);
+      fetchData();
+    } catch (err) {
+      toast.error(formatApiError(err));
+    } finally {
+      setApproving(false);
+    }
+  };
+
+  const exportPDF = () => {
+    // Print-friendly version
+    window.print();
+  };
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <div className="spinner"></div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!timesheet) return null;
+
+  return (
+    <Layout>
+      <div className="fade-in print:p-0" data-testid="timesheet-view">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6 print:hidden">
+          <div className="flex items-center">
+            <Button variant="ghost" onClick={() => navigate(-1)} className="mr-4" data-testid="back-button">
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900" data-testid="view-title">
+                Timesheet Details
+              </h1>
+              <p className="text-gray-500">{timesheet.employee_name}</p>
+            </div>
+          </div>
+          <div className="flex space-x-2">
+            {(timesheet.status === "submitted" || timesheet.status === "rejected") && 
+             timesheet.user_id === user?.id && (
+              <Button variant="outline" onClick={() => navigate(`/timesheet/${id}/edit`)} data-testid="edit-button">
+                <Edit className="w-4 h-4 mr-2" />
+                Edit
+              </Button>
+            )}
+            <Button variant="outline" onClick={exportPDF} data-testid="export-button">
+              <Download className="w-4 h-4 mr-2" />
+              Print/PDF
+            </Button>
+          </div>
+        </div>
+
+        {/* Timesheet Card */}
+        <div className="card p-6 mb-6 print:shadow-none print:border-2">
+          {/* Header Info */}
+          <div className="flex flex-wrap justify-between items-start mb-6 pb-4 border-b">
+            <div>
+              <h2 className="text-xl font-bold">Timesheet</h2>
+              <p className="text-gray-600">Employee: <span className="font-medium">{timesheet.employee_name}</span></p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-gray-500">Week Ending</p>
+              <p className="text-lg font-bold">{format(new Date(timesheet.week_ending), "EEEE, d MMMM yyyy")}</p>
+              <div className="mt-2">{getStatusBadge(timesheet.status)}</div>
+            </div>
+          </div>
+
+          {/* Rejection Comment */}
+          {timesheet.status === "rejected" && timesheet.rejection_comment && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded">
+              <p className="font-medium text-red-800">Rejection Reason:</p>
+              <p className="text-red-700">{timesheet.rejection_comment}</p>
+            </div>
+          )}
+
+          {/* Timesheet Grid */}
+          <div className="overflow-x-auto mb-6">
+            <table className="w-full text-sm border">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="p-2 border text-left font-semibold">Day</th>
+                  <th className="p-2 border text-left font-semibold">Start</th>
+                  <th className="p-2 border text-left font-semibold">Lunch</th>
+                  <th className="p-2 border text-left font-semibold">Finish</th>
+                  <th className="p-2 border text-left font-semibold">Hours</th>
+                  <th className="p-2 border text-left font-semibold">Job No.</th>
+                  <th className="p-2 border text-left font-semibold">Code</th>
+                  <th className="p-2 border text-left font-semibold">PM</th>
+                  <th className="p-2 border text-left font-semibold">Other</th>
+                </tr>
+              </thead>
+              <tbody>
+                {timesheet.days.map((day, dayIndex) => (
+                  day.entries.map((entry, entryIndex) => (
+                    <tr key={`${dayIndex}-${entryIndex}`} className="hover:bg-gray-50">
+                      {entryIndex === 0 && (
+                        <td className="p-2 border font-medium bg-gray-50" rowSpan={day.entries.length}>
+                          {day.day}
+                        </td>
+                      )}
+                      <td className="p-2 border">{entry.start_time || "-"}</td>
+                      <td className="p-2 border">{entry.lunch_duration ? `${entry.lunch_duration}m` : "-"}</td>
+                      <td className="p-2 border">{entry.finish_time || "-"}</td>
+                      <td className="p-2 border font-medium">{entry.total_hours?.toFixed(2) || "0.00"}</td>
+                      <td className="p-2 border">{entry.job_number || "-"}</td>
+                      <td className="p-2 border">{entry.task_code || "-"}</td>
+                      <td className="p-2 border">{entry.project_manager_id ? getPmName(entry.project_manager_id) : "-"}</td>
+                      <td className="p-2 border">{entry.other || "-"}</td>
+                    </tr>
+                  ))
+                ))}
+                <tr className="bg-gray-900 text-white font-bold">
+                  <td colSpan="4" className="p-3 border text-right">TOTAL HOURS:</td>
+                  <td className="p-3 border text-lg" data-testid="view-total-hours">{timesheet.total_hours?.toFixed(2)}</td>
+                  <td colSpan="4" className="p-3 border"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Additional Info */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+              <p className="text-sm text-gray-500 mb-1">Messages / Notes</p>
+              <p className="p-3 bg-gray-50 rounded min-h-[60px]">{timesheet.messages || "No messages"}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 mb-1">Nights Away</p>
+              <p className="p-3 bg-gray-50 rounded">{timesheet.nights_away || 0}</p>
+            </div>
+          </div>
+
+          {/* Signatures Section */}
+          <div className="border-t pt-6">
+            <h3 className="font-semibold mb-4">Signatures</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Employee Signature */}
+              <div>
+                <p className="text-sm font-medium text-gray-700 mb-2">Employee Signature</p>
+                {timesheet.employee_signature ? (
+                  <div className="border rounded p-2 bg-white">
+                    <img 
+                      src={timesheet.employee_signature} 
+                      alt="Employee signature" 
+                      className="max-h-24 w-auto"
+                      data-testid="employee-signature-img"
+                    />
+                  </div>
+                ) : (
+                  <div className="border rounded p-4 text-gray-400 text-center">Not signed</div>
+                )}
+              </div>
+
+              {/* PM Signatures */}
+              {timesheet.pm_signatures && timesheet.pm_signatures.length > 0 ? (
+                timesheet.pm_signatures.map((sig, idx) => (
+                  <div key={idx}>
+                    <p className="text-sm font-medium text-gray-700 mb-2">
+                      PM Signature ({sig.pm_name})
+                    </p>
+                    <div className="border rounded p-2 bg-white">
+                      <img 
+                        src={sig.signature} 
+                        alt={`${sig.pm_name} signature`} 
+                        className="max-h-24 w-auto"
+                        data-testid={`pm-signature-img-${idx}`}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Signed: {format(new Date(sig.signed_at), "PPp")}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-2">PM Signature</p>
+                  <div className="border rounded p-4 text-gray-400 text-center">Awaiting approval</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Approval Actions */}
+        {(canPMApprove() || canAdminApprove()) && (
+          <div className="card p-6 print:hidden" data-testid="approval-actions">
+            <h3 className="font-semibold mb-4">Approval Actions</h3>
+            <div className="flex space-x-4">
+              {canPMApprove() && (
+                <Button
+                  onClick={() => setShowApproveModal(true)}
+                  className="bg-green-600 hover:bg-green-700"
+                  disabled={approving}
+                  data-testid="pm-approve-button"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Approve as PM
+                </Button>
+              )}
+              {canAdminApprove() && (
+                <Button
+                  onClick={handleAdminApprove}
+                  className="bg-green-600 hover:bg-green-700"
+                  disabled={approving}
+                  data-testid="admin-approve-button"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Final Approval
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                onClick={() => setShowRejectModal(true)}
+                className="text-red-600 border-red-300 hover:bg-red-50"
+                disabled={approving}
+                data-testid="reject-button"
+              >
+                <XCircle className="w-4 h-4 mr-2" />
+                Reject
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* PM Approve Modal with Signature */}
+        {showApproveModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" data-testid="approve-modal">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h3 className="text-lg font-bold mb-4">Sign to Approve</h3>
+              <SignaturePad
+                label="Your Signature"
+                onSignatureChange={setPmSignature}
+              />
+              <div className="flex justify-end space-x-2 mt-6">
+                <Button variant="outline" onClick={() => setShowApproveModal(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handlePMApprove} 
+                  className="bg-green-600 hover:bg-green-700"
+                  disabled={approving || !pmSignature}
+                  data-testid="confirm-approve-button"
+                >
+                  {approving ? "Approving..." : "Approve"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Reject Modal */}
+        {showRejectModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" data-testid="reject-modal">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h3 className="text-lg font-bold mb-4">Reject Timesheet</h3>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Reason for rejection
+                </label>
+                <Textarea
+                  value={rejectComment}
+                  onChange={(e) => setRejectComment(e.target.value)}
+                  placeholder="Please provide a reason..."
+                  rows={3}
+                  data-testid="reject-comment-input"
+                />
+              </div>
+              <div className="flex justify-end space-x-2 mt-6">
+                <Button variant="outline" onClick={() => setShowRejectModal(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleReject}
+                  className="bg-red-600 hover:bg-red-700"
+                  disabled={approving || !rejectComment.trim()}
+                  data-testid="confirm-reject-button"
+                >
+                  {approving ? "Rejecting..." : "Reject"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Print Styles */}
+      <style>{`
+        @media print {
+          body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+          .print\\:hidden { display: none !important; }
+          .print\\:shadow-none { box-shadow: none !important; }
+          .print\\:border-2 { border-width: 2px !important; }
+          .print\\:p-0 { padding: 0 !important; }
+        }
+      `}</style>
+    </Layout>
+  );
+}
