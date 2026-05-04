@@ -1,4 +1,4 @@
-﻿from dotenv import load_dotenv
+from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends
@@ -1535,20 +1535,51 @@ async def get_users(request: Request):
     user = await get_current_user(request)
     if user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
-    
-    users = await db.users.find({}, {"_id": 1, "email": 1, "name": 1, "role": 1, "created_at": 1, "smartly_employee_code": 1, "smartly_pay_group": 1, "payroll_treatment": 1, "smartly_costing_mode": 1, "smartly_has_standard_hours": 1}).to_list(1000)
-    return [{
-        "id": str(u["_id"]),
-        "email": u["email"],
-        "name": u["name"],
-        "role": u["role"],
-        "smartly_employee_code": u.get("smartly_employee_code", ""),
-        "smartly_pay_group": u.get("smartly_pay_group", ""),
-        "payroll_treatment": u.get("payroll_treatment", "payroll_employee"),
-        "smartly_costing_mode": u.get("smartly_costing_mode", "define_now"),
-        "smartly_has_standard_hours": u.get("smartly_has_standard_hours", True),
-        "created_at": u["created_at"].isoformat() if isinstance(u["created_at"], datetime) else str(u.get("created_at", ""))
-    } for u in users]
+
+    users = await db.users.find(
+        {},
+        {
+            "_id": 1,
+            "email": 1,
+            "name": 1,
+            "role": 1,
+            "created_at": 1,
+            "smartly_employee_code": 1,
+            "smartly_pay_group": 1,
+            "payroll_treatment": 1,
+            "smartly_costing_mode": 1,
+            "smartly_has_standard_hours": 1,
+            "is_pro": 1,
+        },
+    ).to_list(1000)
+
+    allowed_roles = {"employee", "project_manager", "admin"}
+    safe_users = []
+
+    for u in users:
+        role = u.get("role")
+        if role not in allowed_roles:
+            continue
+
+        # Skip unrelated app user records that may share the local Mongo users collection.
+        if u.get("is_pro") is True:
+            continue
+
+        created_at = u.get("created_at", "")
+        safe_users.append({
+            "id": str(u.get("_id", "")),
+            "email": u.get("email", ""),
+            "name": u.get("name", ""),
+            "role": role,
+            "smartly_employee_code": u.get("smartly_employee_code", ""),
+            "smartly_pay_group": u.get("smartly_pay_group", ""),
+            "payroll_treatment": u.get("payroll_treatment", "payroll_employee"),
+            "smartly_costing_mode": u.get("smartly_costing_mode", "define_now"),
+            "smartly_has_standard_hours": u.get("smartly_has_standard_hours", True),
+            "created_at": created_at.isoformat() if isinstance(created_at, datetime) else str(created_at or ""),
+        })
+
+    return safe_users
 
 @api_router.put("/users/{user_id}/role")
 async def update_user_role(user_id: str, request: Request):
