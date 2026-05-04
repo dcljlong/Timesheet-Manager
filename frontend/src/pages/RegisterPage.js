@@ -17,7 +17,7 @@ export default function RegisterPage() {
   const navigate = useNavigate();
 
   if (user) {
-    navigate("/");
+    navigate("/login");
     return null;
   }
 
@@ -28,7 +28,7 @@ export default function RegisterPage() {
     
     try {
       await register(email, password, name, role);
-      navigate("/");
+      navigate("/login");
     } catch (err) {
       setError(formatApiError(err));
     } finally {

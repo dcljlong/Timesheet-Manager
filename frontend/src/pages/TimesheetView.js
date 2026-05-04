@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth, API, formatApiError } from "../App";
 import axios from "axios";
@@ -23,11 +23,7 @@ export default function TimesheetView() {
   const [pmSignature, setPmSignature] = useState(null);
   const [showApproveModal, setShowApproveModal] = useState(false);
 
-  useEffect(() => {
-    fetchData();
-  }, [id]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [tsRes, pmsRes] = await Promise.all([
         axios.get(`${API}/timesheets/${id}`, { withCredentials: true }),
@@ -41,7 +37,11 @@ export default function TimesheetView() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, navigate]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const getPmName = (pmId) => {
     const pm = projectManagers.find(p => p.id === pmId);
@@ -59,7 +59,7 @@ export default function TimesheetView() {
       submitted: "Pending PM Approval",
       pm_approved: "Pending Admin Approval",
       approved: "Approved",
-      rejected: "Rejected"
+      rejected: "Not Approved"
     };
     return <span className={badges[status] || "badge"}>{labels[status] || status}</span>;
   };
@@ -75,6 +75,14 @@ export default function TimesheetView() {
     return user?.role === "admin" && timesheet.status === "pm_approved";
   };
 
+    const getCalculatedTotalHours = () => {
+      if (!timesheet?.days) return 0;
+      return timesheet.days.reduce((sum, day) => {
+        return sum + (day.entries || []).reduce((entrySum, entry) => {
+          return entrySum + (parseFloat(entry.total_hours) || 0);
+        }, 0);
+      }, 0);
+    };
   const handlePMApprove = async () => {
     if (!pmSignature) {
       toast.error("Please sign before approving");
@@ -121,7 +129,7 @@ export default function TimesheetView() {
         action: "reject",
         comment: rejectComment
       }, { withCredentials: true });
-      toast.success("Timesheet rejected");
+      toast.success("Timesheet marked as not approved");
       setShowRejectModal(false);
       fetchData();
     } catch (err) {
@@ -152,21 +160,21 @@ export default function TimesheetView() {
     <Layout>
       <div className="fade-in print:p-0" data-testid="timesheet-view">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6 print:hidden">
+        <div className="flex items-center justify-between mb-5 print:hidden">
           <div className="flex items-center">
             <Button variant="ghost" onClick={() => navigate(-1)} className="mr-4" data-testid="back-button">
               <ArrowLeft className="w-4 h-4" />
             </Button>
             <div>
               <h1 className="text-2xl font-bold text-gray-900" data-testid="view-title">
-                Timesheet Details
+                Timesheet Summary
               </h1>
               <p className="text-gray-500">{timesheet.employee_name}</p>
             </div>
           </div>
           <div className="flex space-x-2">
             {(timesheet.status === "submitted" || timesheet.status === "rejected") && 
-             timesheet.user_id === user?.id && (
+             (timesheet.user_id === user?.id || user?.role === "project_manager") && (
               <Button variant="outline" onClick={() => navigate(`/timesheet/${id}/edit`)} data-testid="edit-button">
                 <Edit className="w-4 h-4 mr-2" />
                 Edit
@@ -180,9 +188,9 @@ export default function TimesheetView() {
         </div>
 
         {/* Timesheet Card */}
-        <div className="card p-6 mb-6 print:shadow-none print:border-2">
+        <div className="card p-6 mb-5 print:shadow-none print:border-2">
           {/* Header Info */}
-          <div className="flex flex-wrap justify-between items-start mb-6 pb-4 border-b">
+          <div className="flex flex-wrap justify-between items-start mb-5 pb-4 border-b">
             <div>
               <h2 className="text-xl font-bold">Timesheet</h2>
               <p className="text-gray-600">Employee: <span className="font-medium">{timesheet.employee_name}</span></p>
@@ -194,19 +202,50 @@ export default function TimesheetView() {
             </div>
           </div>
 
+          {Array.isArray(timesheet.pm_edit_history) && timesheet.pm_edit_history.length > 0 ? (
+            <div className="mb-5 p-4 bg-amber-50 border border-amber-200 rounded">
+              <p className="font-medium text-amber-800 mb-2">PM Edit History</p>
+              <div className="space-y-3">
+                {timesheet.pm_edit_history.map((item, idx) => (
+                  <div
+                    key={`pm-edit-history-${idx}`}
+                    className={idx > 0 ? "pt-3 border-t border-amber-200" : ""}
+                  >
+                    <p className="font-medium text-amber-800">
+                      {item.edited_name || "Project Manager"}
+                    </p>
+                    <p className="text-xs text-amber-700 mb-1">
+                      {item.edited_at ? format(new Date(item.edited_at), "d MMM yyyy h:mm a") : ""}
+                    </p>
+                    <p className="text-amber-700">{item.reason || "-"}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            (timesheet.pm_last_edited_at || timesheet.pm_edit_reason) && (
+              <div className="mb-5 p-4 bg-amber-50 border border-amber-200 rounded">
+                <p className="font-medium text-amber-800">
+                  Edited by PM{timesheet.pm_last_edited_name ? `: ${timesheet.pm_last_edited_name}` : ""}
+                </p>
+                <p className="text-amber-700">{timesheet.pm_edit_reason || "Timesheet updated by PM."}</p>
+              </div>
+            )
+          )}
+
           {/* Rejection Comment */}
           {timesheet.status === "rejected" && timesheet.rejection_comment && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded">
-              <p className="font-medium text-red-800">Rejection Reason:</p>
+            <div className="mb-5 p-4 bg-red-50 border border-red-200 rounded">
+              <p className="font-medium text-red-800">Not Approved Reason:</p>
               <p className="text-red-700">{timesheet.rejection_comment}</p>
             </div>
           )}
 
           {/* Timesheet Grid */}
-          <div className="overflow-x-auto mb-6">
-            <table className="w-full text-sm border">
+          <div className="overflow-x-auto mb-5">
+            <table className="w-full text-sm border border-gray-200 rounded overflow-hidden">
               <thead>
-                <tr className="bg-gray-100">
+                <tr className="bg-gray-100 text-gray-700 uppercase text-xs tracking-wide">
                   <th className="p-2 border text-left font-semibold">Day</th>
                   <th className="p-2 border text-left font-semibold">Start</th>
                   <th className="p-2 border text-left font-semibold">Lunch</th>
@@ -215,7 +254,7 @@ export default function TimesheetView() {
                   <th className="p-2 border text-left font-semibold">Job No.</th>
                   <th className="p-2 border text-left font-semibold">Code</th>
                   <th className="p-2 border text-left font-semibold">PM</th>
-                  <th className="p-2 border text-left font-semibold">Other</th>
+                  <th className="p-2 border text-left font-semibold">Description</th>
                 </tr>
               </thead>
               <tbody>
@@ -227,20 +266,20 @@ export default function TimesheetView() {
                           {day.day}
                         </td>
                       )}
-                      <td className="p-2 border">{entry.start_time || "-"}</td>
-                      <td className="p-2 border">{entry.lunch_duration ? `${entry.lunch_duration}m` : "-"}</td>
-                      <td className="p-2 border">{entry.finish_time || "-"}</td>
+                      <td className="px-3 py-2 border border-gray-200">{entry.start_time || "-"}</td>
+                      <td className="px-3 py-2 border border-gray-200">{entry.lunch_duration ? `${entry.lunch_duration}m` : "-"}</td>
+                      <td className="px-3 py-2 border border-gray-200">{entry.finish_time || "-"}</td>
                       <td className="p-2 border font-medium">{entry.total_hours?.toFixed(2) || "0.00"}</td>
-                      <td className="p-2 border">{entry.job_number || "-"}</td>
-                      <td className="p-2 border">{entry.task_code || "-"}</td>
-                      <td className="p-2 border">{entry.project_manager_id ? getPmName(entry.project_manager_id) : "-"}</td>
-                      <td className="p-2 border">{entry.other || "-"}</td>
+                      <td className="px-3 py-2 border border-gray-200">{entry.job_number || "-"}</td>
+                      <td className="px-3 py-2 border border-gray-200">{entry.task_code || "-"}</td>
+                      <td className="px-3 py-2 border border-gray-200">{entry.project_manager_id ? getPmName(entry.project_manager_id) : "-"}</td>
+                      <td className="px-3 py-2 border border-gray-200">{entry.description || entry.other || "-"}</td>
                     </tr>
                   ))
                 ))}
                 <tr className="bg-gray-900 text-white font-bold">
                   <td colSpan="4" className="p-3 border text-right">TOTAL HOURS:</td>
-                  <td className="p-3 border text-lg" data-testid="view-total-hours">{timesheet.total_hours?.toFixed(2)}</td>
+                  <td className="p-3 border text-lg" data-testid="view-total-hours">{getCalculatedTotalHours().toFixed(2)}</td>
                   <td colSpan="4" className="p-3 border"></td>
                 </tr>
               </tbody>
@@ -248,7 +287,7 @@ export default function TimesheetView() {
           </div>
 
           {/* Additional Info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
             <div>
               <p className="text-sm text-gray-500 mb-1">Messages / Notes</p>
               <p className="p-3 bg-gray-50 rounded min-h-[60px]">{timesheet.messages || "No messages"}</p>
@@ -262,7 +301,7 @@ export default function TimesheetView() {
           {/* Signatures Section */}
           <div className="border-t pt-6">
             <h3 className="font-semibold mb-4">Signatures</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Employee Signature */}
               <div>
                 <p className="text-sm font-medium text-gray-700 mb-2">Employee Signature</p>
@@ -334,7 +373,7 @@ export default function TimesheetView() {
                   data-testid="admin-approve-button"
                 >
                   <CheckCircle className="w-4 h-4 mr-2" />
-                  Final Approval
+                  Admin Approval
                 </Button>
               )}
               <Button
@@ -425,3 +464,13 @@ export default function TimesheetView() {
     </Layout>
   );
 }
+
+
+
+
+
+
+
+
+
+

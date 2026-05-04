@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { API, formatApiError } from "../App";
 import axios from "axios";
@@ -17,6 +17,7 @@ export default function ManageTaskCodes() {
   const [newCode, setNewCode] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [adding, setAdding] = useState(false);
+  const [savingTaskCodeId, setSavingTaskCodeId] = useState(null);
 
   useEffect(() => {
     fetchTaskCodes();
@@ -53,6 +54,28 @@ export default function ManageTaskCodes() {
       toast.error(formatApiError(err));
     } finally {
       setAdding(false);
+    }
+  };
+
+  const handleFieldChange = (id, field, value) => {
+    setTaskCodes((prev) => prev.map((tc) => (tc.id === id ? { ...tc, [field]: value } : tc)));
+  };
+
+  const handleSaveSmartlySettings = async (id) => {
+    const target = taskCodes.find((tc) => tc.id === id);
+    if (!target) return;
+
+    setSavingTaskCodeId(id);
+    try {
+      await axios.put(`${API}/task-codes/${id}/smartly-settings`, {
+        smartly_department_quick_code: target.smartly_department_quick_code || "",
+        smartly_export_enabled: target.smartly_export_enabled !== false
+      }, { withCredentials: true });
+      toast.success("Task code Smartly settings updated");
+    } catch (err) {
+      toast.error(formatApiError(err));
+    } finally {
+      setSavingTaskCodeId(null);
     }
   };
 
@@ -107,6 +130,9 @@ export default function ManageTaskCodes() {
                 <tr>
                   <th>Code</th>
                   <th>Description</th>
+                    <th>Smartly Dept Code</th>
+                    <th>Export</th>
+                    <th>Save</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -115,6 +141,30 @@ export default function ManageTaskCodes() {
                   <tr key={tc.id} data-testid={`code-row-${tc.id}`}>
                     <td className="font-medium">{tc.code}</td>
                     <td>{tc.description}</td>
+                      <td>
+                        <Input
+                          value={tc.smartly_department_quick_code || ""}
+                          onChange={(e) => handleFieldChange(tc.id, "smartly_department_quick_code", e.target.value)}
+                          className="h-8 w-36"
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={tc.smartly_export_enabled !== false}
+                          onChange={(e) => handleFieldChange(tc.id, "smartly_export_enabled", e.target.checked)}
+                        />
+                      </td>
+                      <td>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSaveSmartlySettings(tc.id)}
+                          disabled={savingTaskCodeId === tc.id}
+                        >
+                          {savingTaskCodeId === tc.id ? "Saving..." : "Save"}
+                        </Button>
+                      </td>
                     <td>
                       <Button
                         variant="ghost"

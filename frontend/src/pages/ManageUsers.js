@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth, API, formatApiError } from "../App";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { ArrowLeft, Trash2, Users } from "lucide-react";
 import { format } from "date-fns";
@@ -14,6 +15,7 @@ export default function ManageUsers() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [savingPayrollUserId, setSavingPayrollUserId] = useState(null);
 
   useEffect(() => {
     fetchUsers();
@@ -37,6 +39,31 @@ export default function ManageUsers() {
       toast.success("Role updated");
     } catch (err) {
       toast.error(formatApiError(err));
+    }
+  };
+
+  const handlePayrollFieldChange = (userId, field, value) => {
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, [field]: value } : u)));
+  };
+
+  const handleSavePayrollSettings = async (userId) => {
+    const targetUser = users.find((u) => u.id === userId);
+    if (!targetUser) return;
+
+    setSavingPayrollUserId(userId);
+    try {
+      await axios.put(`${API}/users/${userId}/payroll-settings`, {
+        smartly_employee_code: targetUser.smartly_employee_code || "",
+        smartly_pay_group: targetUser.smartly_pay_group || "",
+        payroll_treatment: targetUser.payroll_treatment || "payroll_employee",
+        smartly_costing_mode: targetUser.smartly_costing_mode || "define_now",
+        smartly_has_standard_hours: targetUser.smartly_has_standard_hours !== false
+      }, { withCredentials: true });
+      toast.success("Payroll settings updated");
+    } catch (err) {
+      toast.error(formatApiError(err));
+    } finally {
+      setSavingPayrollUserId(null);
     }
   };
 
@@ -109,6 +136,11 @@ export default function ManageUsers() {
                     <th>Name</th>
                     <th>Email</th>
                     <th>Role</th>
+                      <th>Smartly Code</th>
+                      <th>Pay Group</th>
+                      <th>Payroll Treatment</th>
+                      <th>Costing Mode</th>
+                      <th>Std Hours</th>
                     <th>Created</th>
                     <th>Actions</th>
                   </tr>
@@ -134,10 +166,70 @@ export default function ManageUsers() {
                           </SelectContent>
                         </Select>
                       </td>
+                        <td>
+                          <Input
+                            value={u.smartly_employee_code || ""}
+                            onChange={(e) => handlePayrollFieldChange(u.id, "smartly_employee_code", e.target.value)}
+                            className="h-8 w-28"
+                          />
+                        </td>
+                        <td>
+                          <Input
+                            value={u.smartly_pay_group || ""}
+                            onChange={(e) => handlePayrollFieldChange(u.id, "smartly_pay_group", e.target.value)}
+                            className="h-8 w-24"
+                          />
+                        </td>
+                        <td>
+                          <Select
+                            value={u.payroll_treatment || "payroll_employee"}
+                            onValueChange={(v) => handlePayrollFieldChange(u.id, "payroll_treatment", v)}
+                          >
+                            <SelectTrigger className="w-40 h-8">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="payroll_employee">Payroll Employee</SelectItem>
+                              <SelectItem value="hold_from_export">Hold From Export</SelectItem>
+                              <SelectItem value="contractor_verify_only">Contractor Verify Only</SelectItem>
+                              <SelectItem value="contractor_in_smartly">Contractor In Smartly</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        <td>
+                          <Select
+                            value={u.smartly_costing_mode || "define_now"}
+                            onValueChange={(v) => handlePayrollFieldChange(u.id, "smartly_costing_mode", v)}
+                          >
+                            <SelectTrigger className="w-36 h-8">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="define_now">Define Now</SelectItem>
+                              <SelectItem value="enter_at_pay_time">Enter At Pay Time</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={u.smartly_has_standard_hours !== false}
+                            onChange={(e) => handlePayrollFieldChange(u.id, "smartly_has_standard_hours", e.target.checked)}
+                          />
+                        </td>
                       <td className="text-gray-500">
                         {u.created_at ? format(new Date(u.created_at), "d MMM yyyy") : "-"}
                       </td>
                       <td>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleSavePayrollSettings(u.id)}
+                            disabled={savingPayrollUserId === u.id}
+                            className="mr-2"
+                          >
+                            {savingPayrollUserId === u.id ? "Saving..." : "Save Payroll"}
+                          </Button>
                         <Button
                           variant="ghost"
                           size="sm"

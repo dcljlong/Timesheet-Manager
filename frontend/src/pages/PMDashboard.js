@@ -51,7 +51,7 @@ export default function PMDashboard() {
       submitted: "Pending Approval",
       pm_approved: "Approved by PM",
       approved: "Fully Approved",
-      rejected: "Rejected"
+      rejected: "Not Approved"
     };
     return <span className={badges[status] || "badge"}>{labels[status] || status}</span>;
   };

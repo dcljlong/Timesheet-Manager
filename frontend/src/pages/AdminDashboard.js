@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth, API } from "../App";
 import axios from "axios";
 import { Button } from "../components/ui/button";
-import { FileText, Users, Clock, CheckCircle, XCircle, Layers, UserCog } from "lucide-react";
+import { FileText, Users, Clock, CheckCircle, XCircle, Layers, UserCog, Download } from "lucide-react";
 import { format } from "date-fns";
 import Layout from "../components/Layout";
 
@@ -18,7 +18,12 @@ export default function AdminDashboard() {
     rejected: 0
   });
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("all");
+  const [filter, setFilter] = useState("pending_pm");
+  const [selectedWeekEnding, setSelectedWeekEnding] = useState("all");
+  const [smartlyPayGroup, setSmartlyPayGroup] = useState("all");
+  const [smartlySummary, setSmartlySummary] = useState(null);
+  const [smartlyLoading, setSmartlyLoading] = useState(false);
+  const [smartlyExporting, setSmartlyExporting] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -39,13 +44,118 @@ export default function AdminDashboard() {
     }
   };
 
+  const smartlyPayGroupOptions = smartlySummary?.available_pay_groups || [];
+  const weekOptions = Array.from(
+    new Set(timesheets.map(ts => ts.week_ending).filter(Boolean))
+  ).sort((a, b) => new Date(b) - new Date(a));
+
   const filteredTimesheets = timesheets.filter(ts => {
-    if (filter === "pending_pm") return ts.status === "submitted";
-    if (filter === "pending_admin") return ts.status === "pm_approved";
-    if (filter === "approved") return ts.status === "approved";
-    if (filter === "rejected") return ts.status === "rejected";
-    return true;
+    const matchesStatus =
+      filter === "pending_pm" ? ts.status === "submitted" :
+      filter === "pending_admin" ? ts.status === "pm_approved" :
+      filter === "approved" ? ts.status === "approved" :
+      filter === "rejected" ? ts.status === "rejected" :
+      true;
+
+    const matchesWeek =
+      selectedWeekEnding === "all" ? true : ts.week_ending === selectedWeekEnding;
+
+    return matchesStatus && matchesWeek;
   });
+  const handleExport = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (filter !== "all") params.append("status", filter);
+      if (selectedWeekEnding !== "all") params.append("week_ending", selectedWeekEnding);
+
+      const queryString = params.toString();
+      const url = queryString
+        ? `${API}/timesheets/export.csv?${queryString}`
+        : `${API}/timesheets/export.csv`;
+
+      const response = await axios.get(url, {
+        withCredentials: true,
+        responseType: "blob"
+      });
+
+      const blobUrl = window.URL.createObjectURL(new Blob([response.data], { type: "text/csv" }));
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = `timesheets_${filter}_${selectedWeekEnding === "all" ? "all-weeks" : selectedWeekEnding}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error("CSV export failed:", err);
+      window.alert("CSV export failed");
+    }
+  };
+
+  const handleSmartlyValidate = async () => {
+    try {
+      setSmartlyLoading(true);
+      const params = new URLSearchParams();
+      if (selectedWeekEnding !== "all") params.append("week_ending", selectedWeekEnding);
+      if (smartlyPayGroup !== "all") params.append("pay_group", smartlyPayGroup);
+
+      const queryString = params.toString();
+      const url = queryString
+        ? `${API}/timesheets/smartly-export-summary?${queryString}`
+        : `${API}/timesheets/smartly-export-summary`;
+
+      const { data } = await axios.get(url, { withCredentials: true });
+      setSmartlySummary(data);
+    } catch (err) {
+      console.error("Smartly validation failed:", err);
+      window.alert("Smartly validation failed");
+    } finally {
+      setSmartlyLoading(false);
+    }
+  };
+
+  const handleSmartlyExport = async () => {
+    if (!smartlySummary) {
+      window.alert("Run Validate Smartly Export first");
+      return;
+    }
+
+    if ((smartlySummary.ready_row_count || 0) <= 0) {
+      window.alert("No Smartly-ready rows found for export");
+      return;
+    }
+
+    try {
+      setSmartlyExporting(true);
+      const params = new URLSearchParams();
+      if (selectedWeekEnding !== "all") params.append("week_ending", selectedWeekEnding);
+      if (smartlyPayGroup !== "all") params.append("pay_group", smartlyPayGroup);
+
+      const queryString = params.toString();
+      const url = queryString
+        ? `${API}/timesheets/smartly-export.csv?${queryString}`
+        : `${API}/timesheets/smartly-export.csv`;
+
+      const response = await axios.get(url, {
+        withCredentials: true,
+        responseType: "blob"
+      });
+
+      const blobUrl = window.URL.createObjectURL(new Blob([response.data], { type: "text/csv" }));
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = `smartly_batch_${smartlyPayGroup === "all" ? "all-pay-groups" : smartlyPayGroup}_${selectedWeekEnding === "all" ? "all-weeks" : selectedWeekEnding}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error("Smartly export failed:", err);
+      window.alert("Smartly export failed");
+    } finally {
+      setSmartlyExporting(false);
+    }
+  };
 
   const getStatusBadge = (status) => {
     const badges = {
@@ -58,7 +168,7 @@ export default function AdminDashboard() {
       submitted: "Pending PM",
       pm_approved: "Pending Admin",
       approved: "Approved",
-      rejected: "Rejected"
+      rejected: "Not Approved"
     };
     return <span className={badges[status] || "badge"}>{labels[status] || status}</span>;
   };
@@ -81,12 +191,12 @@ export default function AdminDashboard() {
           <h1 className="text-2xl font-bold text-gray-900" data-testid="admin-dashboard-title">
             Admin Dashboard
           </h1>
-          <p className="text-gray-500 mt-1">Manage all timesheets and settings</p>
+          <p className="text-gray-500 mt-1">Review weekly payroll timesheets and settings</p>
         </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-          <div className="card p-4" data-testid="stat-total">
+          <div className="card p-4 cursor-pointer hover:shadow-md transition-shadow" data-testid="stat-total" onClick={() => setFilter("all")}>
             <div className="flex items-center">
               <div className="p-2 bg-gray-100 rounded">
                 <FileText className="w-4 h-4 text-gray-700" />
@@ -98,7 +208,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="card p-4" data-testid="stat-pending-pm">
+          <div className="card p-4 cursor-pointer hover:shadow-md transition-shadow" data-testid="stat-pending-pm" onClick={() => setFilter("pending_pm")}>
             <div className="flex items-center">
               <div className="p-2 bg-yellow-100 rounded">
                 <Clock className="w-4 h-4 text-yellow-700" />
@@ -110,7 +220,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="card p-4" data-testid="stat-pending-admin">
+          <div className="card p-4 cursor-pointer hover:shadow-md transition-shadow" data-testid="stat-pending-admin" onClick={() => setFilter("pending_admin")}>
             <div className="flex items-center">
               <div className="p-2 bg-blue-100 rounded">
                 <Clock className="w-4 h-4 text-blue-700" />
@@ -122,7 +232,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="card p-4" data-testid="stat-approved">
+          <div className="card p-4 cursor-pointer hover:shadow-md transition-shadow" data-testid="stat-approved" onClick={() => setFilter("approved")}>
             <div className="flex items-center">
               <div className="p-2 bg-green-100 rounded">
                 <CheckCircle className="w-4 h-4 text-green-700" />
@@ -134,7 +244,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="card p-4" data-testid="stat-rejected">
+          <div className="card p-4 cursor-pointer hover:shadow-md transition-shadow" data-testid="stat-rejected" onClick={() => setFilter("rejected")}>
             <div className="flex items-center">
               <div className="p-2 bg-red-100 rounded">
                 <XCircle className="w-4 h-4 text-red-700" />
@@ -192,6 +302,140 @@ export default function AdminDashboard() {
           </button>
         </div>
 
+        {/* Week Filter */}
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <label className="text-sm font-medium text-gray-700">Week Ending</label>
+          <select
+            value={selectedWeekEnding}
+            onChange={(e) => setSelectedWeekEnding(e.target.value)}
+            className="h-9 rounded-md border border-gray-300 bg-white px-3 text-sm"
+            data-testid="week-ending-filter"
+          >
+            <option value="all">All weeks</option>
+            {weekOptions.map((week) => (
+              <option key={week} value={week}>
+                {format(new Date(week), "d MMM yyyy")}
+              </option>
+            ))}
+          </select>
+          <p className="text-sm text-gray-500">
+            Showing {filteredTimesheets.length} of {timesheets.length}
+          </p>
+        </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleExport}
+            data-testid="admin-export-csv-button"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Export Generic CSV
+          </Button>
+
+          <div className="card p-4 mb-4" data-testid="smartly-export-panel">
+            <div className="flex flex-wrap items-end gap-3 mb-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700">Smartly Pay Group</label>
+                <select
+                  value={smartlyPayGroup}
+                  onChange={(e) => setSmartlyPayGroup(e.target.value)}
+                  className="mt-1 h-9 rounded-md border border-gray-300 bg-white px-3 text-sm min-w-[180px]"
+                  data-testid="smartly-pay-group-filter"
+                >
+                  <option value="all">All pay groups</option>
+                  {smartlyPayGroupOptions.map((group) => (
+                    <option key={group} value={group}>
+                      {group}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleSmartlyValidate}
+                disabled={smartlyLoading}
+                data-testid="validate-smartly-export-button"
+              >
+                {smartlyLoading ? "Validating..." : "Validate Smartly Export"}
+              </Button>
+
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleSmartlyExport}
+                disabled={smartlyExporting}
+                data-testid="export-smartly-csv-button"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                {smartlyExporting ? "Exporting..." : "Export Smartly Batch CSV"}
+              </Button>
+            </div>
+
+            {smartlySummary && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+                  <div className="rounded border p-3">
+                    <p className="text-gray-500">Ready Timesheets</p>
+                    <p className="text-lg font-semibold">{smartlySummary.ready_timesheet_count}</p>
+                  </div>
+                  <div className="rounded border p-3">
+                    <p className="text-gray-500">Ready Employees</p>
+                    <p className="text-lg font-semibold">{smartlySummary.ready_employee_count}</p>
+                  </div>
+                  <div className="rounded border p-3">
+                    <p className="text-gray-500">Ready Rows</p>
+                    <p className="text-lg font-semibold">{smartlySummary.ready_row_count}</p>
+                  </div>
+                  <div className="rounded border p-3">
+                    <p className="text-gray-500">Issues</p>
+                    <p className="text-lg font-semibold">{smartlySummary.issue_count}</p>
+                  </div>
+                  <div className="rounded border p-3">
+                    <p className="text-gray-500">Excluded</p>
+                    <p className="text-lg font-semibold">{smartlySummary.exclusion_count}</p>
+                  </div>
+                </div>
+
+
+                {(smartlySummary.ready_row_count || 0) <= 0 && (
+                  <div className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                    No Smartly-ready rows found for this selection. Try another week or pay group, or make sure timesheets are approved first.
+                  </div>
+                )}
+
+                {smartlySummary.issue_count > 0 && (
+                  <div>
+                    <p className="text-sm font-medium text-red-700 mb-1">Top Issues</p>
+                    <ul className="text-sm text-red-700 space-y-1">
+                      {smartlySummary.issues.slice(0, 5).map((item, idx) => (
+                        <li key={`issue-${idx}`}>
+                          {(item.employee_name || "Unknown")} - {item.reason}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {smartlySummary.exclusion_count > 0 && (
+                  <div>
+                    <p className="text-sm font-medium text-amber-700 mb-1">Top Exclusions</p>
+                    <ul className="text-sm text-amber-700 space-y-1">
+                      {smartlySummary.exclusions.slice(0, 5).map((item, idx) => (
+                        <li key={`exclusion-${idx}`}>
+                          {(item.employee_name || "Unknown")} - {item.reason}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
         {/* Filter Tabs */}
         <div className="flex flex-wrap gap-2 mb-4">
           {[
@@ -199,7 +443,7 @@ export default function AdminDashboard() {
             { key: "pending_pm", label: "Pending PM" },
             { key: "pending_admin", label: "Pending Admin" },
             { key: "approved", label: "Approved" },
-            { key: "rejected", label: "Rejected" }
+            { key: "rejected", label: "Not Approved" }
           ].map(f => (
             <Button
               key={f.key}
@@ -216,13 +460,13 @@ export default function AdminDashboard() {
         {/* Timesheets List */}
         <div className="card" data-testid="admin-timesheets-list">
           <div className="p-4 border-b border-gray-200">
-            <h2 className="font-semibold text-gray-900">All Timesheets</h2>
+            <h2 className="font-semibold text-gray-900">{filter === "all" ? "All Timesheets" : filter === "pending_pm" ? "Pending PM Approval" : filter === "pending_admin" ? "Pending Admin Approval" : filter === "approved" ? "Approved Timesheets" : "Not Approved Timesheets"}</h2>
           </div>
 
           {filteredTimesheets.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
               <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-              <p>No timesheets found</p>
+              <p>{filter === "all" ? "No timesheets found" : filter === "pending_pm" ? "No timesheets pending PM approval" : filter === "pending_admin" ? "No timesheets pending admin approval" : filter === "approved" ? "No approved timesheets found" : "No not approved timesheets found"}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -268,3 +512,9 @@ export default function AdminDashboard() {
     </Layout>
   );
 }
+
+
+
+
+
+
