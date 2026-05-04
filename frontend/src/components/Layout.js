@@ -42,6 +42,12 @@ export default function Layout({ children }) {
 
   const roleNavItems = navItems[user?.role] || navItems.employee;
 
+  const suiteLinks = [
+    { href: "http://localhost:3003/dashboard", label: "Long Line Diary" },
+    { href: "http://localhost:3002/dashboard", label: "Tool Tracker" },
+    { href: "http://localhost:3004/login", label: "FitoutOS" },
+  ];
+
   return (
     <div className="min-h-screen bg-[#FAFAFA]" data-testid="app-layout">
       {/* Top Navigation */}
@@ -71,6 +77,19 @@ export default function Layout({ children }) {
                   >
                     {item.label}
                   </Link>
+                ))}
+
+                <div className="mx-2 h-6 border-l border-gray-200" aria-hidden="true" />
+
+                {suiteLinks.map((item) => (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    className="px-3 py-2 text-sm font-medium rounded transition-colors text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                    data-testid={`suite-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
+                  >
+                    {item.label}
+                  </a>
                 ))}
               </div>
             </div>
@@ -112,6 +131,17 @@ export default function Layout({ children }) {
                 </Link>
               );
             })}
+
+            {suiteLinks.map((item) => (
+              <a
+                key={item.href}
+                href={item.href}
+                className="flex items-center px-3 py-2 text-xs font-medium rounded whitespace-nowrap transition-colors text-gray-500 hover:text-gray-900"
+                data-testid={`mobile-suite-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
+              >
+                {item.label}
+              </a>
+            ))}
           </div>
         </div>
       </nav>
