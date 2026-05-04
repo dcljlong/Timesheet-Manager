@@ -1,0 +1,7 @@
+﻿ARCHITECTURE LOCK
+
+This app is the primary labour/timesheet input system.
+
+FitoutOS consumes approved or synced labour data from this app.
+
+Do not create duplicate independent labour workflows without explicit decision.
