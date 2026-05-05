@@ -89,7 +89,7 @@ export default function Layout({ children }) {
                   className="tm-suite-link"
                   title={item.description}
                   data-testid={`suite-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
-                >
+                 target="_blank" rel="noopener noreferrer">
                   {item.label}
                 </a>
               ))}
@@ -134,7 +134,7 @@ export default function Layout({ children }) {
               href={item.href}
               className="tm-mobile-suite-link"
               data-testid={`mobile-suite-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
-            >
+             target="_blank" rel="noopener noreferrer">
               {item.label}
             </a>
           ))}
