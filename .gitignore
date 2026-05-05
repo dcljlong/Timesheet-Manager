@@ -82,3 +82,7 @@ memory/test_credentials.md
 android-sdk/app.zip
 frontend/node_modules/.cache/default-development/0.pack
 app.zip
+
+# Local development backups/logs
+_local_run_logs/
+backups/
