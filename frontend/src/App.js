@@ -28,6 +28,32 @@ import ManageTaskCodes from "./pages/ManageTaskCodes";
 import ManagePMs from "./pages/ManagePMs";
 import ManageUsers from "./pages/ManageUsers";
 
+const ThemeContext = createContext(null);
+
+export const useTheme = () => useContext(ThemeContext);
+
+const ThemeProvider = ({ children }) => {
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem("lls_theme") || "light";
+  });
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove("light", "dark");
+    root.classList.add(theme);
+    localStorage.setItem("lls_theme", theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((current) => current === "dark" ? "light" : "dark");
+  };
+
+  return (
+    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme, isDark: theme === "dark" }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+};
 const AuthContext = createContext(null);
 
 export const useAuth = () => useContext(AuthContext);
@@ -159,8 +185,9 @@ const RoleBasedRedirect = () => {
 
 function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
+    <ThemeProvider>
+      <AuthProvider>
+        <BrowserRouter>
         <Toaster position="top-right" richColors />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
@@ -220,8 +247,9 @@ function App() {
             </ProtectedRoute>
           } />
         </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+        </BrowserRouter>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

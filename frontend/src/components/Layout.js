@@ -1,11 +1,12 @@
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "../App";
-import { LogOut, Settings, FileText, Users, ClipboardList, Home, UserCog, Layers } from "lucide-react";
+import { useAuth, useTheme } from "../App";
+import { LogOut, Settings, FileText, Users, ClipboardList, Home, UserCog, Layers, Sun, Moon } from "lucide-react";
 import { Button } from "../components/ui/button";
 import timesheetLogo from "../assets/timesheet-manager-logo.png";
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -109,6 +110,16 @@ export default function Layout({ children }) {
           </div>
 
           <div className="tm-nav-user">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="tm-theme-toggle"
+              data-testid="theme-toggle"
+              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+              title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            >
+              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
             <span className="tm-user-name" data-testid="user-name">
               {user?.name}
             </span>

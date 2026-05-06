@@ -701,6 +701,25 @@ body {
   font-weight: 750;
 }
 
+.tm-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  border: 1px solid rgba(245, 190, 80, 0.34);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #f5be50;
+  transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+}
+
+.tm-theme-toggle:hover {
+  background: rgba(245, 190, 80, 0.14);
+  border-color: rgba(245, 190, 80, 0.58);
+  color: #ffffff;
+}
 .tm-logout-button {
   color: rgba(226, 232, 240, 0.86) !important;
 }
@@ -1010,4 +1029,76 @@ body {
 .tm-login-submit {
   min-height: 2.95rem !important;
   font-size: 1.02rem !important;
+}
+/* LONG LINE SUITE / TSM DARK MODE V1 */
+.dark body {
+  background: #050914;
+  color: #f8fafc;
+}
+
+.dark .tm-app-shell {
+  background:
+    radial-gradient(circle at top left, rgba(245, 190, 80, 0.10), transparent 30%),
+    linear-gradient(180deg, #050914, #080e1c);
+  color: #f8fafc;
+}
+
+.dark .tm-main-content {
+  color: #f8fafc;
+}
+
+.dark .card,
+.dark [class*="bg-white"],
+.dark [class*="bg-card"] {
+  background-color: rgba(8, 14, 28, 0.96) !important;
+  border-color: rgba(245, 190, 80, 0.20) !important;
+  color: #f8fafc !important;
+}
+
+.dark .data-table th,
+.dark .timesheet-header,
+.dark .day-header {
+  background-color: rgba(245, 190, 80, 0.10) !important;
+  color: rgba(248, 250, 252, 0.88) !important;
+  border-color: rgba(245, 190, 80, 0.18) !important;
+}
+
+.dark .data-table td,
+.dark .timesheet-cell {
+  background-color: rgba(8, 14, 28, 0.92) !important;
+  color: rgba(248, 250, 252, 0.90) !important;
+  border-color: rgba(245, 190, 80, 0.12) !important;
+}
+
+.dark .data-table tr:hover {
+  background-color: rgba(245, 190, 80, 0.06) !important;
+}
+
+.dark .form-input,
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: rgba(3, 7, 16, 0.92) !important;
+  border-color: rgba(245, 190, 80, 0.22) !important;
+  color: #f8fafc !important;
+}
+
+.dark .form-input::placeholder,
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: rgba(226, 232, 240, 0.52) !important;
+}
+
+.dark .btn-secondary {
+  color: #f5be50;
+  border-color: rgba(245, 190, 80, 0.45);
+}
+
+.dark .btn-secondary:hover {
+  background-color: rgba(245, 190, 80, 0.10);
+}
+
+.dark .signature-canvas {
+  background-color: rgba(3, 7, 16, 0.92);
+  border-color: rgba(245, 190, 80, 0.28);
 }
