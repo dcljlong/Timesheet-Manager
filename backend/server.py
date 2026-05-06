@@ -201,6 +201,16 @@ def serialize_user(user: dict) -> dict:
         "created_at": user.get("created_at", datetime.now(timezone.utc)).isoformat() if isinstance(user.get("created_at"), datetime) else str(user.get("created_at", ""))
     }
 
+# ==================== HEALTH ENDPOINTS ====================
+
+@api_router.get("/health")
+async def health_check():
+    return {
+        "status": "healthy",
+        "service": "timesheet-manager",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
 # ==================== AUTH ENDPOINTS ====================
 
 @api_router.post("/auth/register")
@@ -1770,29 +1780,3 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
