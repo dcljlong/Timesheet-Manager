@@ -1,11 +1,11 @@
-﻿import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import axios from "axios";
 import { Toaster } from "sonner";
-import api from "./lib/api";
+import api, { API_BASE_URL } from "./lib/api";
 
-export const API = "http://127.0.0.1:8000/api";
+export const API = API_BASE_URL;
 
 export const formatApiError = (error) => {
   const detail = error?.response?.data?.detail;
@@ -76,12 +76,15 @@ export const AuthProvider = ({ children }) => {
       applyAuthToken(data.access_token);
     }
 
+    const loginUser = data?.user || data;
+
     setUser({
-      id: data.id,
-      email: data.email,
-      name: data.name,
-      role: data.role,
-      created_at: data.created_at,
+      id: loginUser?.id,
+      email: loginUser?.email,
+      name: loginUser?.name,
+      role: loginUser?.role || "employee",
+      company: loginUser?.company || null,
+      created_at: loginUser?.created_at,
     });
 
     return data;
