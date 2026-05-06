@@ -42,9 +42,21 @@ export default function Layout({ children }) {
   const roleNavItems = navItems[user?.role] || navItems.employee;
 
   const suiteLinks = [
-    { href: "http://localhost:3003/dashboard", label: "LLD", description: "Long Line Diary / Site diary" },
-    { href: "http://localhost:3002/dashboard", label: "Tool Tracker", description: "Tool control" },
-    { href: "http://localhost:3004/login", label: "FitoutOS", description: "Fitout planning" },
+    {
+      href: process.env.REACT_APP_LONG_LINE_DIARY_URL || "http://localhost:3003/dashboard",
+      label: "LLD",
+      description: "Long Line Diary / Site diary"
+    },
+    {
+      href: process.env.REACT_APP_TOOL_TRACKER_URL || "http://localhost:3002/dashboard",
+      label: "Tool Tracker",
+      description: "Tool control"
+    },
+    {
+      href: process.env.REACT_APP_FITOUTOS_URL || "http://localhost:3004/login",
+      label: "FitoutOS",
+      description: "Fitout planning"
+    },
   ];
 
   return (
