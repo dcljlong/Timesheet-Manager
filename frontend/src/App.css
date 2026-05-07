@@ -1102,3 +1102,421 @@ body {
   background-color: rgba(3, 7, 16, 0.92);
   border-color: rgba(245, 190, 80, 0.28);
 }
+/* TIMESHEET MANAGER / FINAL LEFT RAIL SUITE SHELL V1 */
+.tm-shell-grid {
+  width: 100%;
+}
+
+.tm-desktop-brand-rail {
+  display: none;
+}
+
+.tm-rail-nav,
+.tm-rail-suite,
+.tm-rail-account {
+  display: none;
+}
+
+.tm-rail-card {
+  color: #f8fafc;
+}
+
+.tm-rail-logo {
+  display: block;
+  width: 3.25rem;
+  height: 3.25rem;
+  object-fit: contain;
+  filter: drop-shadow(0 16px 28px rgba(0, 0, 0, 0.42));
+}
+
+.tm-rail-copy {
+  display: flex;
+  flex-direction: column;
+  margin-top: 0.45rem;
+  line-height: 1.02;
+}
+
+.tm-rail-kicker {
+  font-size: 0.58rem;
+  font-weight: 950;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #f5be50;
+}
+
+.tm-rail-title {
+  margin-top: 0.12rem;
+  font-size: 1.05rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  line-height: 0.92;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+
+.tm-rail-subtitle {
+  margin-top: 0.22rem;
+  max-width: 8.25rem;
+  font-size: 0.54rem;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  line-height: 1.18;
+  text-transform: uppercase;
+  color: rgba(226, 232, 240, 0.72);
+}
+
+.tm-rail-section-title {
+  margin: 0 0 0.35rem;
+  padding: 0 0.62rem;
+  color: #f5be50;
+  font-size: 0.56rem;
+  font-weight: 950;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+@media (min-width: 1024px) {
+  .tm-top-nav {
+    display: none !important;
+  }
+
+  .tm-app-shell {
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at top left, rgba(245, 190, 80, 0.12), transparent 28%),
+      linear-gradient(180deg, #f8f4ea 0%, #f5efe4 42%, #fbfaf7 100%);
+    color: #07111f;
+  }
+
+  .tm-shell-grid {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 1rem 1.25rem 1.5rem 13.35rem !important;
+  }
+
+  .tm-desktop-brand-rail {
+    display: block;
+    position: fixed !important;
+    left: 0.85rem !important;
+    top: 0.85rem !important;
+    bottom: 0.85rem !important;
+    width: 11.75rem !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: calc(100vh - 1.7rem) !important;
+    overflow-y: auto !important;
+    z-index: 60 !important;
+    padding: 0.65rem 0.55rem !important;
+    background:
+      radial-gradient(circle at top left, rgba(245, 190, 80, 0.14), transparent 34%),
+      linear-gradient(180deg, #050914 0%, #08101f 58%, #0b1220 100%) !important;
+    border: 1px solid rgba(245, 190, 80, 0.24) !important;
+    border-radius: 1rem !important;
+    box-shadow: 0 18px 44px rgba(15, 23, 42, 0.18) !important;
+  }
+
+  .tm-main-content {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: #07111f;
+  }
+
+  .tm-main-content h1,
+  .tm-main-content h2,
+  .tm-main-content h3,
+  .tm-main-content h4 {
+    color: #07111f !important;
+    letter-spacing: -0.02em;
+  }
+
+  .tm-main-content .card,
+  .tm-main-content [class*="bg-white"],
+  .tm-main-content [class*="bg-card"] {
+    background-color: rgba(255, 253, 248, 0.96) !important;
+    border-color: rgba(148, 111, 45, 0.32) !important;
+    color: #07111f !important;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08) !important;
+  }
+
+  .tm-main-content .text-gray-500,
+  .tm-main-content .text-gray-600,
+  .tm-main-content [class*="text-gray"] {
+    color: #475569 !important;
+  }
+
+  .tm-rail-card {
+    padding: 0 0 0.68rem;
+    border-bottom: 1px solid rgba(245, 190, 80, 0.26);
+  }
+
+  .tm-rail-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.16rem;
+    margin-top: 0.65rem;
+  }
+
+  .tm-rail-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.52rem;
+    min-height: 1.92rem;
+    padding: 0.38rem 0.55rem;
+    border-radius: 0.72rem;
+    color: rgba(226, 232, 240, 0.84);
+    font-size: 0.72rem;
+    font-weight: 850;
+    text-decoration: none;
+    transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease;
+  }
+
+  .tm-rail-nav-link:hover {
+    background: rgba(255, 255, 255, 0.10);
+    color: #ffffff;
+    transform: translateX(2px);
+  }
+
+  .tm-rail-nav-link.active {
+    background: rgba(245, 190, 80, 0.20);
+    color: #f5be50;
+    box-shadow: inset 3px 0 0 rgba(245, 190, 80, 0.92);
+  }
+
+  .tm-rail-suite,
+  .tm-rail-account {
+    display: block;
+    margin-top: 0.68rem;
+    padding-top: 0.58rem;
+    border-top: 1px solid rgba(245, 190, 80, 0.22);
+  }
+
+  .tm-rail-suite-links,
+  .tm-rail-account-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.14rem;
+  }
+
+  .tm-rail-suite-link,
+  .tm-rail-theme-toggle,
+  .tm-rail-logout-button {
+    display: flex;
+    align-items: center;
+    gap: 0.52rem;
+    min-height: 1.92rem;
+    width: 100%;
+    padding: 0.38rem 0.55rem;
+    border: 0;
+    border-radius: 0.72rem;
+    background: transparent;
+    color: rgba(245, 190, 80, 0.92);
+    font-size: 0.72rem;
+    font-weight: 850;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease;
+  }
+
+  .tm-rail-logout-button {
+    color: rgba(226, 232, 240, 0.84);
+  }
+
+  .tm-rail-suite-link:hover,
+  .tm-rail-theme-toggle:hover,
+  .tm-rail-logout-button:hover {
+    background: rgba(255, 255, 255, 0.10);
+    color: #ffffff;
+    transform: translateX(2px);
+  }
+
+  .tm-rail-user-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding: 0.08rem 0.62rem 0.5rem;
+    min-width: 0;
+  }
+
+  .tm-rail-user-name {
+    color: rgba(248, 250, 252, 0.92);
+    font-size: 0.75rem;
+    font-weight: 850;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .tm-rail-user-role {
+    color: rgba(226, 232, 240, 0.72);
+    font-size: 0.54rem;
+    font-weight: 850;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1320px) {
+  .tm-shell-grid {
+    padding-left: 12.6rem !important;
+    padding-right: 0.9rem !important;
+  }
+
+  .tm-desktop-brand-rail {
+    left: 0.6rem !important;
+    width: 11.35rem !important;
+  }
+}
+
+.dark .tm-desktop-brand-rail {
+  background:
+    radial-gradient(circle at top left, rgba(245, 190, 80, 0.14), transparent 34%),
+    linear-gradient(180deg, #050914 0%, #08101f 58%, #0b1220 100%) !important;
+  border-color: rgba(245, 190, 80, 0.24) !important;
+}
+
+.dark .tm-main-content .card,
+.dark .tm-main-content [class*="bg-white"],
+.dark .tm-main-content [class*="bg-card"] {
+  background-color: rgba(8, 14, 28, 0.96) !important;
+  border-color: rgba(245, 190, 80, 0.20) !important;
+  color: #f8fafc !important;
+}
+/* TIMESHEET MANAGER / DARK CONTENT CONTRAST V1 */
+.dark .tm-app-shell {
+  background:
+    radial-gradient(circle at top left, rgba(245, 190, 80, 0.10), transparent 30%),
+    linear-gradient(180deg, #050914 0%, #080e1c 46%, #050914 100%) !important;
+}
+
+.dark .tm-main-content {
+  color: #f8fafc !important;
+}
+
+.dark .tm-main-content h1,
+.dark .tm-main-content h2,
+.dark .tm-main-content h3,
+.dark .tm-main-content h4,
+.dark .tm-main-content strong {
+  color: #f8fafc !important;
+}
+
+.dark .tm-main-content p,
+.dark .tm-main-content label,
+.dark .tm-main-content small,
+.dark .tm-main-content .text-gray-400,
+.dark .tm-main-content .text-gray-500,
+.dark .tm-main-content .text-gray-600,
+.dark .tm-main-content [class*="text-gray"],
+.dark .tm-main-content [class*="text-slate"],
+.dark .tm-main-content [class*="text-muted"] {
+  color: rgba(203, 213, 225, 0.88) !important;
+}
+
+.dark .tm-main-content .card,
+.dark .tm-main-content [class*="bg-white"],
+.dark .tm-main-content [class*="bg-card"],
+.dark .tm-main-content [class*="bg-gray"],
+.dark .tm-main-content [class*="bg-slate"] {
+  background-color: rgba(8, 14, 28, 0.98) !important;
+  border-color: rgba(245, 190, 80, 0.28) !important;
+  color: #f8fafc !important;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22) !important;
+}
+
+.dark .tm-main-content .border,
+.dark .tm-main-content [class*="border-gray"],
+.dark .tm-main-content [class*="border-slate"],
+.dark .tm-main-content [class*="border-border"] {
+  border-color: rgba(245, 190, 80, 0.24) !important;
+}
+
+.dark .tm-main-content input,
+.dark .tm-main-content select,
+.dark .tm-main-content textarea {
+  background-color: rgba(3, 7, 16, 0.96) !important;
+  border-color: rgba(245, 190, 80, 0.32) !important;
+  color: #f8fafc !important;
+}
+
+.dark .tm-main-content button:not(.tm-rail-theme-toggle):not(.tm-rail-logout-button),
+.dark .tm-main-content a[role="button"] {
+  border-color: rgba(245, 190, 80, 0.24);
+}
+
+.dark .tm-main-content table,
+.dark .tm-main-content thead,
+.dark .tm-main-content tbody,
+.dark .tm-main-content tr,
+.dark .tm-main-content td,
+.dark .tm-main-content th {
+  color: #f8fafc !important;
+  border-color: rgba(245, 190, 80, 0.22) !important;
+}
+
+.dark .tm-main-content th,
+.dark .tm-main-content [class*="table"] th {
+  background-color: rgba(245, 190, 80, 0.11) !important;
+  color: rgba(248, 250, 252, 0.96) !important;
+}
+
+.dark .tm-main-content td {
+  background-color: rgba(8, 14, 28, 0.92) !important;
+}
+
+.dark .tm-main-content .badge,
+.dark .tm-main-content [class*="badge"] {
+  color: inherit;
+}
+/* TIMESHEET MANAGER / DARK STATUS BADGE CONTRAST V1 */
+.dark .tm-main-content .badge-submitted {
+  background-color: #fef3c7 !important;
+  color: #7c2d12 !important;
+  border: 1px solid rgba(245, 190, 80, 0.36) !important;
+}
+
+.dark .tm-main-content .badge-pm-approved {
+  background-color: #dbeafe !important;
+  color: #1e3a8a !important;
+  border: 1px solid rgba(96, 165, 250, 0.36) !important;
+}
+
+.dark .tm-main-content .badge-approved {
+  background-color: #d1fae5 !important;
+  color: #065f46 !important;
+  border: 1px solid rgba(16, 185, 129, 0.36) !important;
+}
+
+.dark .tm-main-content .badge-rejected {
+  background-color: #fee2e2 !important;
+  color: #991b1b !important;
+  border: 1px solid rgba(239, 68, 68, 0.36) !important;
+}
+/* TIMESHEET MANAGER / DARK STATUS BADGE CONTRAST V1 */
+.dark .tm-main-content .badge-submitted {
+  background-color: #fef3c7 !important;
+  color: #7c2d12 !important;
+  border: 1px solid rgba(245, 190, 80, 0.36) !important;
+}
+
+.dark .tm-main-content .badge-pm-approved {
+  background-color: #dbeafe !important;
+  color: #1e3a8a !important;
+  border: 1px solid rgba(96, 165, 250, 0.36) !important;
+}
+
+.dark .tm-main-content .badge-approved {
+  background-color: #d1fae5 !important;
+  color: #065f46 !important;
+  border: 1px solid rgba(16, 185, 129, 0.36) !important;
+}
+
+.dark .tm-main-content .badge-rejected {
+  background-color: #fee2e2 !important;
+  color: #991b1b !important;
+  border: 1px solid rgba(239, 68, 68, 0.36) !important;
+}

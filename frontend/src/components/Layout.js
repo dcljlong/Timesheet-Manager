@@ -1,6 +1,6 @@
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth, useTheme } from "../App";
-import { LogOut, Settings, FileText, Users, ClipboardList, Home, UserCog, Layers, Sun, Moon } from "lucide-react";
+import { LogOut, Settings, FileText, Users, ClipboardList, Home, UserCog, Layers, Sun, Moon, Building2 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import timesheetLogo from "../assets/timesheet-manager-logo.png";
 
@@ -60,6 +60,9 @@ export default function Layout({ children }) {
     },
   ];
 
+  const displayName = user?.name || user?.email || "Timesheet User";
+  const roleLabel = (user?.role || "user").replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+
   return (
     <div className="tm-app-shell" data-testid="app-layout">
       <nav className="tm-top-nav">
@@ -74,7 +77,6 @@ export default function Layout({ children }) {
                 <span className="tm-brand-title">Timesheet</span>
                 <span className="tm-brand-subtitle">Labour & Payroll Control</span>
               </span>
-
             </Link>
 
             <div className="tm-desktop-nav">
@@ -102,7 +104,9 @@ export default function Layout({ children }) {
                   className="tm-suite-link"
                   title={item.description}
                   data-testid={`suite-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
-                 target="_blank" rel="noopener noreferrer">
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   {item.label}
                 </a>
               ))}
@@ -120,9 +124,11 @@ export default function Layout({ children }) {
             >
               {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
+
             <span className="tm-user-name" data-testid="user-name">
-              {user?.name}
+              {displayName}
             </span>
+
             <Button
               variant="ghost"
               size="sm"
@@ -157,16 +163,101 @@ export default function Layout({ children }) {
               href={item.href}
               className="tm-mobile-suite-link"
               data-testid={`mobile-suite-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
-             target="_blank" rel="noopener noreferrer">
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               {item.label}
             </a>
           ))}
         </div>
       </nav>
 
-      <main className="tm-main-content">
-        {children}
-      </main>
+      <div className="tm-shell-grid">
+        <aside className="tm-desktop-brand-rail" aria-label="Timesheet Manager navigation panel">
+          <div className="tm-rail-card">
+            <img src={timesheetLogo} alt="Timesheet Manager logo" className="tm-rail-logo" />
+            <div className="tm-rail-copy">
+              <span className="tm-rail-kicker">Long Line</span>
+              <span className="tm-rail-title">Timesheet</span>
+              <span className="tm-rail-subtitle">Labour & Payroll Control</span>
+            </div>
+          </div>
+
+          <nav className="tm-rail-nav" aria-label="Timesheet Manager main navigation">
+            {roleNavItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`tm-rail-nav-link ${isActive(item.path) ? "active" : ""}`}
+                  data-testid={`rail-nav-${item.path.replace(/\//g, "-")}`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="tm-rail-suite" aria-label="Long Line Suite apps">
+            <p className="tm-rail-section-title">Long Line Suite</p>
+            <div className="tm-rail-suite-links">
+              {suiteLinks.map((item) => (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  className="tm-rail-suite-link"
+                  title={item.description}
+                  data-testid={`rail-suite-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Building2 className="w-4 h-4" />
+                  <span>{item.label}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+
+          <div className="tm-rail-account" aria-label="Timesheet Manager account controls">
+            <p className="tm-rail-section-title">Account</p>
+
+            <div className="tm-rail-user-block" data-testid="rail-user-name">
+              <span className="tm-rail-user-name">{displayName}</span>
+              <span className="tm-rail-user-role">{roleLabel}</span>
+            </div>
+
+            <div className="tm-rail-account-actions">
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="tm-rail-theme-toggle"
+                data-testid="rail-theme-toggle"
+                aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+                title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+              >
+                {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                <span>{theme === "dark" ? "Light mode" : "Dark mode"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="tm-rail-logout-button"
+                data-testid="rail-logout-button"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Logout</span>
+              </button>
+            </div>
+          </div>
+        </aside>
+
+        <main className="tm-main-content">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }
