@@ -1496,3 +1496,169 @@ body {
   color: #991b1b !important;
   border: 1px solid rgba(239, 68, 68, 0.36) !important;
 }
+
+/* TIMESHEET MANAGER / UI BALANCE POLISH V2
+   Corrects V1: brand was too small/tight. Keeps the Long Line concept:
+   dark navy control rail, cream workspace, clean cards, gold used for active/highlight only. */
+
+/* Top compact/header brand: unboxed logo, but enough weight to feel intentional. */
+.tm-brand-logo {
+    width: 3.05rem !important;
+    height: 3.05rem !important;
+    min-width: 3.05rem !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    overflow: visible !important;
+}
+
+.tm-brand-logo img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain !important;
+    filter: drop-shadow(0 0 6px rgba(245, 190, 80, 0.16));
+}
+
+.tm-brand-link {
+    gap: 0.7rem !important;
+    align-items: center !important;
+}
+
+.tm-brand-copy {
+    justify-content: center !important;
+}
+
+/* Left rail: logo/text as a clean lockup, not a boxed badge and not too tiny. */
+.tm-rail-card {
+    display: grid !important;
+    grid-template-columns: 3.15rem minmax(0, 1fr) !important;
+    align-items: center !important;
+    column-gap: 0.68rem !important;
+    padding: 0.18rem 0.58rem 0.78rem !important;
+    border-bottom: 1px solid rgba(245, 190, 80, 0.16) !important;
+}
+
+.tm-rail-logo {
+    width: 3.15rem !important;
+    height: 3.15rem !important;
+    min-width: 3.15rem !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    object-fit: contain !important;
+    filter: drop-shadow(0 0 6px rgba(245, 190, 80, 0.16));
+}
+
+.tm-rail-copy {
+    margin-top: 0 !important;
+    min-width: 0 !important;
+    justify-content: center !important;
+}
+
+.tm-rail-kicker {
+    font-size: 0.58rem !important;
+    letter-spacing: 0.20em !important;
+}
+
+.tm-rail-title {
+    font-size: 1.08rem !important;
+    letter-spacing: 0.06em !important;
+    line-height: 0.92 !important;
+}
+
+.tm-rail-subtitle {
+    font-size: 0.57rem !important;
+    letter-spacing: 0.12em !important;
+    line-height: 1.05 !important;
+}
+
+/* Rail shell: keep dark identity, reduce heavy boxed border. */
+@media (min-width: 1024px) {
+    .tm-desktop-brand-rail {
+        background:
+            radial-gradient(circle at top left, rgba(245, 190, 80, 0.10), transparent 32%),
+            linear-gradient(180deg, #060b17 0%, #091120 58%, #0b1322 100%) !important;
+        border-color: rgba(245, 190, 80, 0.16) !important;
+        border-radius: 0.82rem !important;
+        box-shadow: 0 14px 34px rgba(15, 23, 42, 0.14) !important;
+    }
+
+    .tm-rail-nav {
+        margin-top: 0.62rem !important;
+    }
+}
+
+/* Left rail rhythm: same left alignment, softer section breaks. */
+.tm-rail-section-title {
+    padding-left: 0.58rem !important;
+    color: rgba(245, 190, 80, 0.78) !important;
+}
+
+.tm-rail-suite,
+.tm-rail-account {
+    border-top: 1px solid rgba(245, 190, 80, 0.14) !important;
+    padding-top: 0.58rem !important;
+}
+
+.tm-rail-nav-link,
+.tm-rail-suite-link,
+.tm-rail-theme-toggle,
+.tm-rail-logout-button {
+    border-radius: 0.56rem !important;
+    min-height: 1.9rem !important;
+    padding: 0.38rem 0.58rem !important;
+}
+
+.tm-rail-nav-link:hover,
+.tm-rail-suite-link:hover,
+.tm-rail-theme-toggle:hover,
+.tm-rail-logout-button:hover {
+    background: rgba(255, 255, 255, 0.075) !important;
+    transform: none !important;
+}
+
+.tm-rail-nav-link.active {
+    background: rgba(245, 190, 80, 0.17) !important;
+    box-shadow: inset 3px 0 0 rgba(245, 190, 80, 0.86) !important;
+}
+
+/* Main content: keep admin practicality, reduce heavy boxed outlines. */
+.tm-main-content .card,
+.tm-main-content [class*="bg-white"],
+.tm-main-content [class*="bg-card"] {
+    border-color: rgba(148, 111, 45, 0.20) !important;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.055) !important;
+}
+
+.dark .tm-desktop-brand-rail {
+    background:
+        radial-gradient(circle at top left, rgba(245, 190, 80, 0.10), transparent 32%),
+        linear-gradient(180deg, #060b17 0%, #091120 58%, #0b1322 100%) !important;
+    border-color: rgba(245, 190, 80, 0.16) !important;
+}
+
+.dark .tm-main-content .card,
+.dark .tm-main-content [class*="bg-white"],
+.dark .tm-main-content [class*="bg-card"],
+.dark .tm-main-content [class*="bg-gray"],
+.dark .tm-main-content [class*="bg-slate"] {
+    border-color: rgba(245, 190, 80, 0.18) !important;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18) !important;
+}
+
+/* True mobile keeps logo compact. */
+@media (max-width: 640px) {
+    .tm-brand-logo {
+        width: 2.65rem !important;
+        height: 2.65rem !important;
+        min-width: 2.65rem !important;
+    }
+
+    .tm-brand-link {
+        gap: 0.55rem !important;
+    }
+}
