@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth, API } from "../App";
 import axios from "axios";
@@ -185,7 +185,7 @@ export default function AdminDashboard() {
 
   return (
     <Layout>
-      <div className="fade-in" data-testid="admin-dashboard">
+      <div className="fade-in tsm-admin-dashboard" data-testid="admin-dashboard">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900" data-testid="admin-dashboard-title">

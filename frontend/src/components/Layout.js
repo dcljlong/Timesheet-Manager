@@ -65,6 +65,29 @@ export default function Layout({ children }) {
 
   return (
     <div className="tm-app-shell" data-testid="app-layout">
+      <div className="tm-desktop-shell-actions" aria-label="Desktop account actions">
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="tm-desktop-theme-button"
+          data-testid="desktop-theme-toggle"
+          aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+          title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+        >
+          {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+        </button>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleLogout}
+          className="tm-desktop-logout-button"
+          data-testid="desktop-logout-button"
+        >
+          <LogOut className="w-4 h-4" />
+          <span>Logout</span>
+        </Button>
+      </div>
       <nav className="tm-top-nav">
         <div className="tm-top-nav-inner">
           <div className="tm-nav-left">
@@ -225,7 +248,7 @@ export default function Layout({ children }) {
 
             <div className="tm-rail-user-block" data-testid="rail-user-name">
               <span className="tm-rail-user-name">{displayName}</span>
-              <span className="tm-rail-user-role">{roleLabel}</span>
+              <span className="tm-rail-user-role">Timesheet Manager</span>
             </div>
 
             <div className="tm-rail-account-actions">
