@@ -1705,24 +1705,40 @@ async def startup_event():
     await db.timesheets.create_index("user_id")
     await db.timesheets.create_index("status")
     
-    # Seed admin
-    admin_email = os.environ.get("ADMIN_EMAIL", "admin@timesheet.com")
+    # Seed / repair configured admin
+    admin_email = os.environ.get("ADMIN_EMAIL", "admin@timesheet.com").strip().lower()
     admin_password = os.environ.get("ADMIN_PASSWORD", "admin123")
-    existing = await db.users.find_one({"email": admin_email})
-    if existing is None:
-        hashed = hash_password(admin_password)
-        await db.users.insert_one({
-            "email": admin_email,
-            "password_hash": hashed,
-            "name": "Admin",
-            "role": "admin",
-            "created_at": datetime.now(timezone.utc),
-            "notification_settings": {"reminder_time": "17:00", "reminder_day": "Friday", "enabled": True}
-        })
-        logger.info(f"Admin user created: {admin_email}")
-    elif not verify_password(admin_password, existing["password_hash"]):
-        await db.users.update_one({"email": admin_email}, {"$set": {"password_hash": hash_password(admin_password)}})
-        logger.info("Admin password updated")
+    admin_name = os.environ.get("ADMIN_NAME", "Admin").strip() or "Admin"
+
+    if admin_email and admin_password:
+        existing = await db.users.find_one({"email": admin_email})
+
+        if existing is None:
+            hashed = hash_password(admin_password)
+            await db.users.insert_one({
+                "email": admin_email,
+                "password_hash": hashed,
+                "name": admin_name,
+                "role": "admin",
+                "created_at": datetime.now(timezone.utc),
+                "notification_settings": {"reminder_time": "17:00", "reminder_day": "Friday", "enabled": True}
+            })
+            logger.info(f"Configured admin user created: {admin_email}")
+        else:
+            update_data = {
+                "email": admin_email,
+                "name": existing.get("name") or admin_name,
+                "role": "admin",
+            }
+
+            if not existing.get("password_hash") or not verify_password(admin_password, existing["password_hash"]):
+                update_data["password_hash"] = hash_password(admin_password)
+
+            await db.users.update_one(
+                {"_id": existing["_id"]},
+                {"$set": update_data}
+            )
+            logger.info(f"Configured admin user repaired: {admin_email}")
     
     # Seed default task codes
     default_codes = [
