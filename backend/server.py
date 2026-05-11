@@ -1773,10 +1773,42 @@ async def shutdown_db_client():
 app.include_router(api_router)
 
 # CORS
+def parse_cors_origins() -> list[str]:
+    defaults = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
+    ]
+
+    configured = []
+
+    cors_origins = os.environ.get("CORS_ORIGINS", "")
+    if cors_origins:
+        configured.extend(
+            origin.strip()
+            for origin in cors_origins.split(",")
+            if origin.strip() and origin.strip() != "*"
+        )
+
+    frontend_url = os.environ.get("FRONTEND_URL", "").strip()
+    if frontend_url and frontend_url != "*":
+        configured.append(frontend_url)
+
+    seen = set()
+    origins = []
+
+    for origin in [*defaults, *configured]:
+        if origin not in seen:
+            origins.append(origin)
+            seen.add(origin)
+
+    return origins
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=["http://localhost:3000","http://127.0.0.1:3000","http://localhost:3001","http://127.0.0.1:3001"],
+    allow_origins=parse_cors_origins(),
     allow_methods=["*"],
     allow_headers=["*"],
 )
