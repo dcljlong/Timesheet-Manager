@@ -11,6 +11,7 @@ import loginBackground from "../assets/timesheet-manager-login-background.png";
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState("");
   const [role, setRole] = useState("employee");
@@ -27,6 +28,12 @@ export default function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -144,6 +151,20 @@ export default function RegisterPage() {
             </div>
           </div>
 
+          <div>
+            <Label htmlFor="confirmPassword" className="tm-login-label">Confirm Password</Label>
+            <Input
+              id="confirmPassword"
+              type={showPassword ? "text" : "password"}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Re-enter password"
+              required
+              minLength={6}
+              data-testid="register-confirm-password-input"
+              className="tm-login-input"
+            />
+          </div>
           <button
             type="submit"
             className="tm-login-submit"
