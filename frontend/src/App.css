@@ -2067,3 +2067,40 @@ body {
 }
 
 /* TIMESHEET MANAGER / TOP LOGO CLARITY V2 END */
+
+/* TIMESHEET MANAGER / SUITE RAIL ACCOUNT ACTION ALIGNMENT V1
+   Professional suite standard:
+   - desktop account controls live in the left rail footer
+   - no floating top-right shell controls on full desktop
+   - compact/tablet top-nav controls remain available where the rail is not the primary shell
+*/
+@media (min-width: 1024px) {
+  .tm-desktop-shell-actions {
+    display: none !important;
+  }
+
+  .tm-rail-account {
+    margin-top: auto !important;
+    padding-top: 1rem !important;
+  }
+
+  .tm-rail-account-actions {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.42rem !important;
+  }
+
+  .tm-rail-theme-toggle,
+  .tm-rail-logout-button {
+    min-height: 2.25rem !important;
+    padding: 0.5rem 0.68rem !important;
+    border-radius: 0.72rem !important;
+    font-size: 0.74rem !important;
+  }
+}
+
+@media (max-width: 1023px) {
+  .tm-desktop-shell-actions {
+    display: none !important;
+  }
+}
