@@ -45,6 +45,9 @@ export default function AdminDashboard() {
   };
 
   const smartlyPayGroupOptions = smartlySummary?.available_pay_groups || [];
+  const currentSmartlyScopeKey = `${selectedWeekEnding}::${smartlyPayGroup}`;
+  const isSmartlySummaryCurrent =
+    Boolean(smartlySummary) && smartlySummary.validated_scope_key === currentSmartlyScopeKey;
   const weekOptions = Array.from(
     new Set(timesheets.map(ts => ts.week_ending).filter(Boolean))
   ).sort((a, b) => new Date(b) - new Date(a));
@@ -105,7 +108,10 @@ export default function AdminDashboard() {
         : `${API}/timesheets/smartly-export-summary`;
 
       const { data } = await axios.get(url, { withCredentials: true });
-      setSmartlySummary(data);
+      setSmartlySummary({
+        ...data,
+        validated_scope_key: `${selectedWeekEnding}::${smartlyPayGroup}`
+      });
     } catch (err) {
       console.error("Smartly validation failed:", err);
       window.alert("Smartly validation failed");
@@ -367,7 +373,7 @@ export default function AdminDashboard() {
                 type="button"
                 size="sm"
                 onClick={handleSmartlyExport}
-                disabled={smartlyExporting}
+                disabled={smartlyExporting || !isSmartlySummaryCurrent || (smartlySummary?.issue_count || 0) > 0 || (smartlySummary?.ready_row_count || 0) <= 0}
                 data-testid="export-smartly-csv-button"
               >
                 <Download className="w-4 h-4 mr-2" />
@@ -407,7 +413,7 @@ export default function AdminDashboard() {
                   </div>
                 )}
 
-                {smartlySummary.issue_count > 0 && (
+                {isSmartlySummaryCurrent && smartlySummary.issue_count > 0 && (
                   <div>
                     <p className="text-sm font-medium text-red-700 mb-1">Top Issues</p>
                     <ul className="text-sm text-red-700 space-y-1">
@@ -420,7 +426,7 @@ export default function AdminDashboard() {
                   </div>
                 )}
 
-                {smartlySummary.exclusion_count > 0 && (
+                {isSmartlySummaryCurrent && smartlySummary.exclusion_count > 0 && (
                   <div>
                     <p className="text-sm font-medium text-amber-700 mb-1">Top Exclusions</p>
                     <ul className="text-sm text-amber-700 space-y-1">
@@ -512,9 +518,3 @@ export default function AdminDashboard() {
     </Layout>
   );
 }
-
-
-
-
-
-
