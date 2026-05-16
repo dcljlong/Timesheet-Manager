@@ -123,12 +123,14 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="tm-login-register">
-          New to Timesheet Manager?{" "}
-          <Link to="/register" data-testid="register-link">
-            Create account
-          </Link>
-        </p>
+        {process.env.REACT_APP_ALLOW_PUBLIC_REGISTRATION === "true" && (
+          <p className="tm-login-register">
+            New to Timesheet Manager?{" "}
+            <Link to="/register" data-testid="register-link">
+              Create account
+            </Link>
+          </p>
+        )}
       </main>
     </div>
   );

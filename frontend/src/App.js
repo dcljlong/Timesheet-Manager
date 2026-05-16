@@ -191,7 +191,16 @@ function App() {
         <Toaster position="top-right" richColors />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+          <Route
+            path="/register"
+            element={
+              process.env.REACT_APP_ALLOW_PUBLIC_REGISTRATION === "true" ? (
+                <RegisterPage />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
           <Route path="/" element={<RoleBasedRedirect />} />
 
           <Route path="/employee" element={
