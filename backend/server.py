@@ -215,6 +215,13 @@ async def health_check():
 
 @api_router.post("/auth/register")
 async def register(user: UserCreate, response: Response):
+    allow_public_registration = os.environ.get("ALLOW_PUBLIC_REGISTRATION", "false").strip().lower()
+    if allow_public_registration not in {"1", "true", "yes", "on"}:
+        raise HTTPException(
+            status_code=403,
+            detail="Public registration is disabled. Ask an admin to create your account."
+        )
+
     email = user.email.lower()
     existing = await db.users.find_one({"email": email})
     if existing:
