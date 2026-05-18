@@ -121,13 +121,37 @@ export const AuthProvider = ({ children }) => {
     return data;
   };
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await api.post("/auth/logout");
     } catch {}
     applyAuthToken(null);
     setUser(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    const auth401Interceptor = api.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        const status = error?.response?.status;
+        const requestUrl = error?.config?.url || "";
+
+        if (
+          status === 401 &&
+          !requestUrl.includes("/auth/login") &&
+          !requestUrl.includes("/auth/logout")
+        ) {
+          logout();
+        }
+
+        return Promise.reject(error);
+      }
+    );
+
+    return () => {
+      api.interceptors.response.eject(auth401Interceptor);
+    };
+  }, [logout]);
 
   return (
     <AuthContext.Provider value={{ user, loading, login, register, logout, checkAuth }}>
