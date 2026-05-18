@@ -1713,8 +1713,8 @@ async def startup_event():
     await db.timesheets.create_index("status")
     
     # Seed / repair configured admin
-    admin_email = os.environ.get("ADMIN_EMAIL", "admin@timesheet.com").strip().lower()
-    admin_password = os.environ.get("ADMIN_PASSWORD", "admin123")
+    admin_email = os.environ.get("ADMIN_EMAIL", "").strip().lower()
+    admin_password = os.environ.get("ADMIN_PASSWORD", "")
     admin_name = os.environ.get("ADMIN_NAME", "Admin").strip() or "Admin"
 
     if admin_email and admin_password:
@@ -1780,13 +1780,8 @@ async def startup_event():
     
     logger.info("Task codes seeded")
     
-    # Write test credentials
-    memory_dir = Path(__file__).resolve().parent.parent / "memory"
-    memory_dir.mkdir(parents=True, exist_ok=True)
-    with open(memory_dir / "test_credentials.md", "w", encoding="utf-8") as f:
-        f.write(f"# Test Credentials\n\n")
-        f.write(f"## Admin\n- Email: {admin_email}\n- Password: {admin_password}\n- Role: admin\n\n")
-        f.write(f"## Auth Endpoints\n- POST /api/auth/register\n- POST /api/auth/login\n- POST /api/auth/logout\n- GET /api/auth/me\n")
+    # Do not write credentials to disk.
+    # Admin credentials are managed via environment variables only.
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
