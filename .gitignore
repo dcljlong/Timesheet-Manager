@@ -86,3 +86,19 @@ app.zip
 # Local development backups/logs
 _local_run_logs/
 backups/
+
+# Local environment files
+.env
+.env.*
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
+!*.env.example
+!*.env.sample
+!*.env.template
+!backend/.env.example
+!frontend/.env.example
+# Local backup artifacts
+stable_backups/
+test_credentials.md
