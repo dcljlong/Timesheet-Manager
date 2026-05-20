@@ -1,6 +1,6 @@
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth, useTheme } from "../App";
-import { LogOut, Settings, FileText, Users, ClipboardList, Home, UserCog, Layers, Sun, Moon, Wrench, Briefcase } from "lucide-react";
+import { LogOut, Settings, FileText, Users, ClipboardList, Home, UserCog, Layers, Sun, Moon, Wrench, Briefcase, MessageSquare } from "lucide-react";
 import { Button } from "../components/ui/button";
 import timesheetLogo from "../assets/timesheet-manager-logo.png";
 
@@ -13,6 +13,22 @@ export default function Layout({ children }) {
   const handleLogout = async () => {
     await logout();
     navigate("/login");
+  };
+
+  const handleFeedbackClick = () => {
+    const subject = encodeURIComponent("[Timesheet Manager Feedback] Pilot feedback");
+    const body = encodeURIComponent([
+      "App: Timesheet Manager",
+      `Page: ${location.pathname}`,
+      `User: ${user?.email || displayName || "Unknown"}`,
+      "",
+      "Feedback type:",
+      "What happened:",
+      "What did you expect:",
+      "How urgent:",
+    ].join("\n"));
+
+    window.location.href = `mailto:longlinesuite.feedback@gmail.com?subject=${subject}&body=${body}`;
   };
 
   const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + "/");
@@ -79,6 +95,17 @@ export default function Layout({ children }) {
         >
           {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
         </button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleFeedbackClick}
+          className="tm-desktop-logout-button"
+          data-testid="desktop-feedback-button"
+          aria-label="Send Timesheet Manager feedback"
+        >
+          <MessageSquare className="w-4 h-4" />
+          <span>Feedback</span>
+        </Button>
 
         <Button
           variant="ghost"
@@ -154,6 +181,17 @@ export default function Layout({ children }) {
             <span className="tm-user-name" data-testid="user-name">
               {displayName}
             </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleFeedbackClick}
+          className="tm-logout-button"
+          data-testid="feedback-button"
+          aria-label="Send Timesheet Manager feedback"
+        >
+          <MessageSquare className="w-4 h-4" />
+          <span className="ml-2 hidden sm:inline">Feedback</span>
+        </Button>
 
             <Button
               variant="ghost"
@@ -271,6 +309,19 @@ export default function Layout({ children }) {
                 {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                 <span>{theme === "dark" ? "Light mode" : "Dark mode"}</span>
               </button>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleFeedbackClick}
+                className="tm-rail-logout-button"
+                data-testid="rail-feedback-button"
+                aria-label="Send Timesheet Manager feedback"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>Feedback</span>
+              </Button>
+
 
               <button
                 type="button"
