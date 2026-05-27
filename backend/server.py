@@ -1165,6 +1165,133 @@ async def export_timesheets_csv(
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )
+
+@api_router.get("/timesheets/fitoutos-export.json")
+async def export_fitoutos_labour_json(
+    request: Request,
+    status: Optional[str] = "approved",
+    week_ending: Optional[str] = None
+):
+    user = await get_current_user(request)
+
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    status_map = {
+        "pending_pm": "submitted",
+        "pending_admin": "pm_approved",
+        "approved": "approved",
+        "rejected": "rejected",
+        "not_approved": "rejected"
+    }
+
+    query = {}
+    if status and status != "all":
+        query["status"] = status_map.get(status, status)
+    if week_ending and week_ending != "all":
+        query["week_ending"] = week_ending
+
+    timesheets = await db.timesheets.find(query, {
+        "_id": 1,
+        "employee_name": 1,
+        "week_ending": 1,
+        "period_type": 1,
+        "days": 1,
+        "status": 1,
+        "messages": 1,
+        "total_hours": 1,
+        "created_at": 1
+    }).sort("week_ending", -1).to_list(5000)
+
+    rows = []
+    issues = []
+    skipped = []
+
+    for timesheet in timesheets:
+        timesheet_id = str(timesheet.get("_id", ""))
+        employee_name = _clean_export_text(timesheet.get("employee_name"))
+        week_value = _clean_export_text(timesheet.get("week_ending"))
+        timesheet_status = _clean_export_text(timesheet.get("status"))
+        timesheet_messages = _clean_export_text(timesheet.get("messages"))
+
+        for day_index, day in enumerate(timesheet.get("days", []) or []):
+            day_name = _clean_export_text(day.get("day"))
+            work_date = _resolve_work_date(week_value, day_name)
+
+            for entry_index, entry in enumerate(day.get("entries", []) or []):
+                entry_type = _clean_export_text(entry.get("type") or "work") or "work"
+
+                try:
+                    hours = float(entry.get("total_hours", 0) or 0)
+                except Exception:
+                    hours = 0.0
+
+                job_number = _clean_export_text(entry.get("job_number"))
+                task_code = _clean_export_text(entry.get("task_code"))
+                description = _clean_export_text(entry.get("description") or entry.get("other"))
+                row_ref = {
+                    "timesheet_id": timesheet_id,
+                    "employee_name": employee_name,
+                    "week_ending": week_value,
+                    "day": day_name,
+                    "entry_index": entry_index
+                }
+
+                if entry_type != "work":
+                    skipped.append({**row_ref, "reason": f"Non-work row skipped: {entry_type}"})
+                    continue
+
+                if hours <= 0:
+                    skipped.append({**row_ref, "reason": "Zero or missing hours"})
+                    continue
+
+                row_issues = []
+                if not job_number:
+                    row_issues.append("Missing job_number")
+                if not task_code:
+                    row_issues.append("Missing task_code")
+                if not work_date:
+                    row_issues.append("Could not resolve work_date from week_ending/day")
+
+                if row_issues:
+                    issues.append({**row_ref, "reason": "; ".join(row_issues)})
+                    continue
+
+                source_id = f"timesheet-manager:{timesheet_id}:{day_name}:{entry_index}:{job_number}:{task_code}"
+
+                rows.append({
+                    "source": "timesheet-manager-fitoutos-export",
+                    "source_id": source_id,
+                    "timesheet_id": timesheet_id,
+                    "employee_name": employee_name,
+                    "week_ending": week_value,
+                    "status": timesheet_status,
+                    "day": day_name,
+                    "date": work_date,
+                    "work_date": work_date,
+                    "job_number": job_number,
+                    "task_code": task_code,
+                    "hours": hours,
+                    "actual_hours": hours,
+                    "notes": description or timesheet_messages
+                })
+
+    return {
+        "source": "timesheet-manager",
+        "target": "fitoutos",
+        "format": "fitoutos_labour_import_v1",
+        "filters": {
+            "status": status or "approved",
+            "week_ending": week_ending or "all"
+        },
+        "row_count": len(rows),
+        "issue_count": len(issues),
+        "skipped_count": len(skipped),
+        "rows": rows,
+        "issues": issues,
+        "skipped": skipped
+    }
+
 @api_router.get("/timesheets/{timesheet_id}")
 async def get_timesheet(timesheet_id: str, request: Request):
     user = await get_current_user(request)
