@@ -1797,7 +1797,7 @@ async def get_timesheet_reference_options(current_user: dict = Depends(get_curre
     return {
         "source": "Timesheet Manager",
         "purpose": "LLD labour dropdown/reference options",
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.utcnow().isoformat() + "Z",
         "requested_by": {
             "id": as_text(user_field("id")),
             "email": as_text(user_field("email")),
