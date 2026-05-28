@@ -1674,6 +1674,117 @@ async def update_notification_settings(settings: NotificationSettingsUpdate, req
 
 # ==================== USERS MANAGEMENT (Admin) ====================
 
+
+@api_router.get("/timesheets/reference-options")
+async def get_timesheet_reference_options(request: Request):
+    """Read-only reference options for Timesheet-compatible labour capture.
+
+    Intended first consumer: LLD Daily Labour Rows.
+    This endpoint does not create or update timesheets.
+    """
+    user = await get_current_user(request)
+
+    users = await db.users.find({}, {"password_hash": 0, "hashed_password": 0, "password": 0}).to_list(1000)
+    project_managers = await db.project_managers.find({}, {"_id": 1, "initials": 1, "name": 1, "email": 1}).to_list(1000)
+    task_codes = await db.task_codes.find({}, {"_id": 1, "code": 1, "description": 1, "smartly_department_quick_code": 1, "smartly_export_enabled": 1}).to_list(1000)
+
+    def safe_id(doc):
+        return str(doc.get("id") or doc.get("_id") or "")
+
+    employee_options = []
+    for item in users:
+        role = item.get("role") or "employee"
+        name = item.get("name") or item.get("email") or "Unnamed user"
+        employee_options.append({
+            "id": safe_id(item),
+            "name": name,
+            "email": item.get("email"),
+            "role": role,
+            "label": name,
+            "value": name,
+            "is_employee": role in ["employee", "project_manager", "admin"]
+        })
+
+    employee_options.sort(key=lambda row: ((row.get("name") or "").lower(), (row.get("email") or "").lower()))
+
+    pm_options = []
+    for pm in project_managers:
+        pm_name = pm.get("name") or pm.get("initials") or "Unnamed PM"
+        pm_options.append({
+            "id": safe_id(pm),
+            "initials": pm.get("initials"),
+            "name": pm.get("name"),
+            "email": pm.get("email"),
+            "label": pm_name,
+            "value": safe_id(pm)
+        })
+
+    pm_options.sort(key=lambda row: ((row.get("name") or "").lower(), (row.get("initials") or "").lower()))
+
+    task_code_options = []
+    for code in task_codes:
+        task_code = code.get("code") or ""
+        description = code.get("description") or ""
+        label = f"{task_code} - {description}".strip(" -")
+        task_code_options.append({
+            "id": safe_id(code),
+            "code": task_code,
+            "description": description,
+            "smartly_department_quick_code": (code.get("smartly_department_quick_code") or "").strip(),
+            "smartly_export_enabled": bool(code.get("smartly_export_enabled", True)),
+            "label": label or task_code,
+            "value": task_code
+        })
+
+    task_code_options.sort(key=lambda row: (row.get("code") or "").lower())
+
+    return {
+        "source": "Timesheet Manager",
+        "purpose": "LLD labour dropdown/reference options",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "requested_by": {
+            "id": user.get("id"),
+            "email": user.get("email"),
+            "role": user.get("role")
+        },
+        "field_names": {
+            "employee": "employee_name",
+            "start": "start_time",
+            "finish": "finish_time",
+            "lunch": "lunch_duration",
+            "hours": "total_hours",
+            "job": "job_number",
+            "task": "task_code",
+            "project_manager": "project_manager_id",
+            "description": "description"
+        },
+        "defaults": {
+            "period_type": "weekly",
+            "entry_type": "work",
+            "lunch_duration": "30",
+            "source": "LLD",
+            "sync_status": "local_only"
+        },
+        "lunch_options": [
+            {"label": "No lunch", "value": "0", "minutes": 0},
+            {"label": "30m", "value": "30", "minutes": 30},
+            {"label": "60m", "value": "60", "minutes": 60}
+        ],
+        "employees": employee_options,
+        "project_managers": pm_options,
+        "task_codes": task_code_options,
+        "counts": {
+            "employees": len(employee_options),
+            "project_managers": len(pm_options),
+            "task_codes": len(task_code_options)
+        },
+        "honest_status": {
+            "read_only": True,
+            "creates_timesheets": False,
+            "approves_timesheets": False,
+            "intended_next_step": "Wire LLD labour dropdowns to these options, then add LLD to Timesheet draft import."
+        }
+    }
 @api_router.get("/users")
 async def get_users(request: Request):
     user = await get_current_user(request)
