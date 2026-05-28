@@ -226,7 +226,7 @@ async def register(user: UserCreate, response: Response):
     existing = await db.users.find_one({"email": email})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
-    
+
     hashed = hash_password(user.password)
     user_doc = {
         "email": email,
@@ -242,9 +242,9 @@ async def register(user: UserCreate, response: Response):
     }
     result = await db.users.insert_one(user_doc)
     user_id = str(result.inserted_id)
-    
-    
-    
+
+
+
     return {
         "id": user_id,
         "email": email,
@@ -320,7 +320,7 @@ async def refresh_token(request: Request, response: Response):
         user = await db.users.find_one({"_id": ObjectId(payload["sub"])})
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
-        
+
         access_token = create_access_token(str(user["_id"]), user["email"], user["role"])
         response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=3600, path="/")
         return serialize_user(user)
@@ -342,7 +342,7 @@ async def create_task_code(task_code: TaskCodeCreate, request: Request):
     existing = await db.task_codes.find_one({"code": task_code.code})
     if existing:
         raise HTTPException(status_code=400, detail="Task code already exists")
-    
+
     doc = {"code": task_code.code, "description": task_code.description, "smartly_department_quick_code": (task_code.smartly_department_quick_code or "").strip(), "smartly_export_enabled": bool(task_code.smartly_export_enabled), "created_by": user["id"], "created_at": datetime.now(timezone.utc)}
     result = await db.task_codes.insert_one(doc)
     return {"id": str(result.inserted_id), "code": task_code.code, "description": task_code.description, "smartly_department_quick_code": (task_code.smartly_department_quick_code or "").strip(), "smartly_export_enabled": bool(task_code.smartly_export_enabled)}
@@ -398,11 +398,11 @@ async def create_project_manager(pm: ProjectManagerCreate, request: Request):
     user = await get_current_user(request)
     if user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
-    
+
     existing = await db.project_managers.find_one({"initials": pm.initials.upper()})
     if existing:
         raise HTTPException(status_code=400, detail="PM initials already exist")
-    
+
     doc = {"initials": pm.initials.upper(), "name": pm.name, "email": pm.email, "created_at": datetime.now(timezone.utc)}
     result = await db.project_managers.insert_one(doc)
     return {"id": str(result.inserted_id), "initials": pm.initials.upper(), "name": pm.name, "email": pm.email}
@@ -569,7 +569,7 @@ async def create_timesheet(timesheet: TimesheetCreate, request: Request):
 @api_router.get("/timesheets")
 async def get_timesheets(request: Request, status: Optional[str] = None):
     user = await get_current_user(request)
-    
+
     query = {}
     if user["role"] == "employee":
         query["user_id"] = user["id"]
@@ -584,10 +584,10 @@ async def get_timesheets(request: Request, status: Optional[str] = None):
         else:
             query["user_id"] = user["id"]
     # Admin sees all
-    
+
     if status:
         query["status"] = status
-    
+
     timesheets = await db.timesheets.find(query, {
         "_id": 1,
         "user_id": 1,
@@ -1299,7 +1299,19 @@ async def get_timesheet_reference_options(request: Request):
     Intended first consumer: LLD Daily Labour Rows.
     This endpoint does not create or update timesheets.
     """
-    user = await get_current_user(request)
+    configured_integration_token = (os.environ.get("LLS_REFERENCE_OPTIONS_TOKEN") or "").strip()
+    supplied_integration_token = (request.headers.get("X-LLS-Reference-Token") or "").strip()
+
+    if configured_integration_token and supplied_integration_token and secrets.compare_digest(configured_integration_token, supplied_integration_token):
+        user = {
+            "id": "service:lld",
+            "email": "lld-integration",
+            "role": "integration"
+        }
+        auth_mode = "integration_token"
+    else:
+        user = await get_current_user(request)
+        auth_mode = "user_token"
 
     def as_text(value, fallback=""):
         if value is None:
@@ -1420,6 +1432,7 @@ async def get_timesheet_reference_options(request: Request):
         "source": "Timesheet Manager",
         "purpose": "LLD labour dropdown/reference options",
         "generated_at": datetime.utcnow().isoformat() + "Z",
+        "auth_mode": auth_mode,
         "requested_by": {
             "id": as_text(user.get("id")),
             "email": as_text(user.get("email")),
@@ -1469,11 +1482,11 @@ async def get_timesheet_reference_options(request: Request):
 @api_router.get("/timesheets/{timesheet_id}")
 async def get_timesheet(timesheet_id: str, request: Request):
     user = await get_current_user(request)
-    
+
     timesheet = await db.timesheets.find_one({"_id": ObjectId(timesheet_id)})
     if not timesheet:
         raise HTTPException(status_code=404, detail="Timesheet not found")
-    
+
     # Check access
     if user["role"] == "employee" and timesheet.get("user_id", "") != user["id"]:
         raise HTTPException(status_code=403, detail="Access denied")
@@ -1520,11 +1533,11 @@ async def get_timesheet(timesheet_id: str, request: Request):
 @api_router.put("/timesheets/{timesheet_id}")
 async def update_timesheet(timesheet_id: str, update: TimesheetUpdate, request: Request):
     user = await get_current_user(request)
-    
+
     timesheet = await db.timesheets.find_one({"_id": ObjectId(timesheet_id)})
     if not timesheet:
         raise HTTPException(status_code=404, detail="Timesheet not found")
-    
+
     is_owner = timesheet.get("user_id", "") == user["id"]
     is_admin = user["role"] == "admin"
     is_assigned_pm = False
@@ -1540,7 +1553,7 @@ async def update_timesheet(timesheet_id: str, update: TimesheetUpdate, request: 
 
     if timesheet.get("status", "draft") != "submitted" and timesheet.get("status", "draft") != "rejected":
         raise HTTPException(status_code=400, detail="Cannot edit approved timesheet")
-    
+
     update_data = {k: v for k, v in update.model_dump().items() if v is not None}
 
     if is_assigned_pm:
@@ -1580,7 +1593,7 @@ async def update_timesheet(timesheet_id: str, update: TimesheetUpdate, request: 
                 if entry.get("project_manager_id"):
                     pm_ids.add(entry["project_manager_id"])
         update_data["pm_ids"] = list(pm_ids)
-    
+
     effective_days = update_data.get("days", timesheet.get("days", []))
     effective_signature = update_data.get("employee_signature", timesheet.get("employee_signature"))
     validate_timesheet_entries(
@@ -1599,38 +1612,38 @@ async def update_timesheet(timesheet_id: str, update: TimesheetUpdate, request: 
     update_data["admin_approved_by"] = None
     update_data["admin_approved_at"] = None
     update_data["rejection_comment"] = None
-    
+
     await db.timesheets.update_one({"_id": ObjectId(timesheet_id)}, {"$set": update_data})
     return {"message": "Timesheet updated"}
 
 @api_router.delete("/timesheets/{timesheet_id}")
 async def delete_timesheet(timesheet_id: str, request: Request):
     user = await get_current_user(request)
-    
+
     timesheet = await db.timesheets.find_one({"_id": ObjectId(timesheet_id)})
     if not timesheet:
         raise HTTPException(status_code=404, detail="Timesheet not found")
-    
+
     if timesheet.get("user_id", "") != user["id"] and user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Access denied")
-    
+
     await db.timesheets.delete_one({"_id": ObjectId(timesheet_id)})
     return {"message": "Timesheet deleted"}
 
 @api_router.post("/timesheets/{timesheet_id}/pm-approve")
 async def pm_approve_timesheet(timesheet_id: str, approval: TimesheetApproval, request: Request):
     user = await get_current_user(request)
-    
+
     if user["role"] not in ["project_manager", "admin"]:
         raise HTTPException(status_code=403, detail="PM or Admin only")
-    
+
     timesheet = await db.timesheets.find_one({"_id": ObjectId(timesheet_id)})
     if not timesheet:
         raise HTTPException(status_code=404, detail="Timesheet not found")
 
     if timesheet.get("status") != "submitted":
         raise HTTPException(status_code=400, detail="Only submitted timesheets can be PM approved")
-    
+
     if approval.action == "approve":
         assigned_pm_ids = [str(pm_id) for pm_id in (timesheet.get("pm_ids", []) or []) if pm_id]
 
@@ -1702,17 +1715,17 @@ async def pm_approve_timesheet(timesheet_id: str, approval: TimesheetApproval, r
 @api_router.post("/timesheets/{timesheet_id}/admin-approve")
 async def admin_approve_timesheet(timesheet_id: str, approval: TimesheetApproval, request: Request):
     user = await get_current_user(request)
-    
+
     if user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
-    
+
     timesheet = await db.timesheets.find_one({"_id": ObjectId(timesheet_id)})
     if not timesheet:
         raise HTTPException(status_code=404, detail="Timesheet not found")
 
     if timesheet.get("status") != "pm_approved":
         raise HTTPException(status_code=400, detail="Only PM approved timesheets can be admin approved")
-    
+
     if approval.action == "approve":
         await db.timesheets.update_one(
             {"_id": ObjectId(timesheet_id)},
@@ -1905,12 +1918,12 @@ async def update_user_role(user_id: str, request: Request):
     current_user = await get_current_user(request)
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
-    
+
     body = await request.json()
     new_role = body.get("role")
     if new_role not in ["employee", "project_manager", "admin"]:
         raise HTTPException(status_code=400, detail="Invalid role")
-    
+
     await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": {"role": new_role}})
     return {"message": "Role updated"}
 
@@ -1962,10 +1975,10 @@ async def delete_user(user_id: str, request: Request):
     current_user = await get_current_user(request)
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
-    
+
     if user_id == current_user["id"]:
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
-    
+
     await db.users.delete_one({"_id": ObjectId(user_id)})
     return {"message": "User deleted"}
 
@@ -1974,7 +1987,7 @@ async def delete_user(user_id: str, request: Request):
 @api_router.get("/dashboard/stats")
 async def get_dashboard_stats(request: Request):
     user = await get_current_user(request)
-    
+
     if user["role"] == "admin":
         total = await db.timesheets.count_documents({})
         pending_pm = await db.timesheets.count_documents({"status": "submitted"})
@@ -2013,7 +2026,7 @@ async def startup_event():
     await db.login_attempts.create_index("identifier")
     await db.timesheets.create_index("user_id")
     await db.timesheets.create_index("status")
-    
+
     # Seed / repair configured admin
     admin_email = os.environ.get("ADMIN_EMAIL", "").strip().lower()
     admin_password = os.environ.get("ADMIN_PASSWORD", "")
@@ -2048,7 +2061,7 @@ async def startup_event():
                 {"$set": update_data}
             )
             logger.info(f"Configured admin user repaired: {admin_email}")
-    
+
     # Seed default task codes
     default_codes = [
         ("101", "Suspended Ceilings / 2-way"),
@@ -2074,14 +2087,14 @@ async def startup_event():
         ("Tools", "Tools"),
         ("Training", "Staff Training"),
     ]
-    
+
     for code, desc in default_codes:
         existing_code = await db.task_codes.find_one({"code": code})
         if not existing_code:
             await db.task_codes.insert_one({"code": code, "description": desc, "created_at": datetime.now(timezone.utc)})
-    
+
     logger.info("Task codes seeded")
-    
+
     # Do not write credentials to disk.
     # Admin credentials are managed via environment variables only.
 
