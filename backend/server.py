@@ -1676,13 +1676,13 @@ async def update_notification_settings(settings: NotificationSettingsUpdate, req
 
 
 @api_router.get("/timesheets/reference-options")
-async def get_timesheet_reference_options(request: Request):
+async def get_timesheet_reference_options(current_user: dict = Depends(get_current_user)):
     """Read-only reference options for Timesheet-compatible labour capture.
 
     Intended first consumer: LLD Daily Labour Rows.
     This endpoint does not create or update timesheets.
     """
-    user = await get_current_user(request)
+    user = current_user
 
     def as_text(value, fallback=""):
         if value is None:
