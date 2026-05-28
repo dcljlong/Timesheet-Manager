@@ -1693,6 +1693,16 @@ async def get_timesheet_reference_options(current_user: dict = Depends(get_curre
         except Exception:
             return fallback
 
+    def user_field(key, fallback=""):
+        try:
+            if isinstance(user, dict):
+                return user.get(key, fallback)
+            if hasattr(user, key):
+                return getattr(user, key)
+            return fallback
+        except Exception:
+            return fallback
+
     def as_bool(value, fallback=True):
         if value is None:
             return fallback
@@ -1789,9 +1799,9 @@ async def get_timesheet_reference_options(current_user: dict = Depends(get_curre
         "purpose": "LLD labour dropdown/reference options",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "requested_by": {
-            "id": as_text(user.get("id")),
-            "email": as_text(user.get("email")),
-            "role": as_text(user.get("role"))
+            "id": as_text(user_field("id")),
+            "email": as_text(user_field("email")),
+            "role": as_text(user_field("role"))
         },
         "field_names": {
             "employee": "employee_name",
