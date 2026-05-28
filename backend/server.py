@@ -1676,13 +1676,13 @@ async def update_notification_settings(settings: NotificationSettingsUpdate, req
 
 
 @api_router.get("/timesheets/reference-options")
-async def get_timesheet_reference_options(current_user: dict = Depends(get_current_user)):
+async def get_timesheet_reference_options(request: Request):
     """Read-only reference options for Timesheet-compatible labour capture.
 
     Intended first consumer: LLD Daily Labour Rows.
     This endpoint does not create or update timesheets.
     """
-    user = current_user
+    user = await get_current_user(request)
 
     def as_text(value, fallback=""):
         if value is None:
@@ -1693,105 +1693,110 @@ async def get_timesheet_reference_options(current_user: dict = Depends(get_curre
         except Exception:
             return fallback
 
-    def user_field(key, fallback=""):
-        try:
-            if isinstance(user, dict):
-                return user.get(key, fallback)
-            if hasattr(user, key):
-                return getattr(user, key)
-            return fallback
-        except Exception:
-            return fallback
-
     def as_bool(value, fallback=True):
         if value is None:
             return fallback
-        return bool(value)
+        try:
+            return bool(value)
+        except Exception:
+            return fallback
 
     def make_label(*parts):
         clean_parts = [as_text(part) for part in parts if as_text(part)]
         return " - ".join(clean_parts)
 
-    try:
-        users = await db.users.find({}, {
-            "_id": 0,
-            "id": 1,
-            "name": 1,
-            "email": 1,
-            "role": 1
-        }).to_list(1000)
-    except Exception:
-        users = []
-
-    try:
-        project_managers = await db.project_managers.find({}, {
-            "_id": 0,
-            "id": 1,
-            "initials": 1,
-            "name": 1,
-            "email": 1
-        }).to_list(1000)
-    except Exception:
-        project_managers = []
-
-    try:
-        task_codes = await db.task_codes.find({}, {
-            "_id": 0,
-            "id": 1,
-            "code": 1,
-            "description": 1,
-            "smartly_department_quick_code": 1,
-            "smartly_export_enabled": 1
-        }).to_list(1000)
-    except Exception:
-        task_codes = []
-
     employee_options = []
-    for item in users:
-        role = as_text(item.get("role"), "employee")
-        name = as_text(item.get("name")) or as_text(item.get("email"), "Unnamed user")
-        employee_options.append({
-            "id": as_text(item.get("id")) or as_text(item.get("email")) or name,
-            "name": name,
-            "email": as_text(item.get("email")),
-            "role": role,
-            "label": name,
-            "value": name,
-            "is_employee": role in ["employee", "project_manager", "admin"]
-        })
+    pm_options = []
+    task_code_options = []
+    source_warnings = []
+
+    try:
+        users = await db.users.find(
+            {},
+            {
+                "_id": 1,
+                "email": 1,
+                "name": 1,
+                "role": 1,
+                "is_pro": 1
+            }
+        ).to_list(1000)
+
+        allowed_roles = {"employee", "project_manager", "admin"}
+        for item in users:
+            role = as_text(item.get("role"), "employee")
+            if role not in allowed_roles:
+                continue
+            if item.get("is_pro") is True:
+                continue
+
+            name = as_text(item.get("name")) or as_text(item.get("email"), "Unnamed user")
+            employee_options.append({
+                "id": str(item.get("_id", "")),
+                "name": name,
+                "email": as_text(item.get("email")),
+                "role": role,
+                "label": name,
+                "value": name,
+                "is_employee": True
+            })
+    except Exception as exc:
+        source_warnings.append(f"users unavailable: {str(exc)}")
+
+    try:
+        project_managers = await db.project_managers.find(
+            {},
+            {
+                "_id": 1,
+                "initials": 1,
+                "name": 1,
+                "email": 1
+            }
+        ).to_list(1000)
+
+        for pm in project_managers:
+            pm_id = str(pm.get("_id", ""))
+            pm_name = as_text(pm.get("name")) or as_text(pm.get("initials"), "Unnamed PM")
+            pm_options.append({
+                "id": pm_id,
+                "initials": as_text(pm.get("initials")),
+                "name": as_text(pm.get("name")),
+                "email": as_text(pm.get("email")),
+                "label": pm_name,
+                "value": pm_id
+            })
+    except Exception as exc:
+        source_warnings.append(f"project_managers unavailable: {str(exc)}")
+
+    try:
+        task_codes = await db.task_codes.find(
+            {},
+            {
+                "_id": 1,
+                "code": 1,
+                "description": 1,
+                "smartly_department_quick_code": 1,
+                "smartly_export_enabled": 1
+            }
+        ).to_list(1000)
+
+        for code in task_codes:
+            task_code = as_text(code.get("code"))
+            description = as_text(code.get("description"))
+            task_code_options.append({
+                "id": str(code.get("_id", "")),
+                "code": task_code,
+                "description": description,
+                "smartly_department_quick_code": as_text(code.get("smartly_department_quick_code")),
+                "smartly_export_enabled": as_bool(code.get("smartly_export_enabled"), True),
+                "label": make_label(task_code, description) or task_code,
+                "value": task_code
+            })
+    except Exception as exc:
+        source_warnings.append(f"task_codes unavailable: {str(exc)}")
 
     employee_options.sort(key=lambda row: ((row.get("name") or "").lower(), (row.get("email") or "").lower()))
-
-    pm_options = []
-    for pm in project_managers:
-        pm_id = as_text(pm.get("id")) or as_text(pm.get("initials")) or as_text(pm.get("email"))
-        pm_name = as_text(pm.get("name")) or as_text(pm.get("initials"), "Unnamed PM")
-        pm_options.append({
-            "id": pm_id,
-            "initials": as_text(pm.get("initials")),
-            "name": as_text(pm.get("name")),
-            "email": as_text(pm.get("email")),
-            "label": pm_name,
-            "value": pm_id
-        })
-
     pm_options.sort(key=lambda row: ((row.get("name") or "").lower(), (row.get("initials") or "").lower()))
-
-    task_code_options = []
-    for code in task_codes:
-        task_code = as_text(code.get("code"))
-        description = as_text(code.get("description"))
-        task_id = as_text(code.get("id")) or task_code
-        task_code_options.append({
-            "id": task_id,
-            "code": task_code,
-            "description": description,
-            "smartly_department_quick_code": as_text(code.get("smartly_department_quick_code")),
-            "smartly_export_enabled": as_bool(code.get("smartly_export_enabled"), True),
-            "label": make_label(task_code, description) or task_code,
-            "value": task_code
-        })
-
     task_code_options.sort(key=lambda row: (row.get("code") or "").lower())
 
     return {
@@ -1799,9 +1804,9 @@ async def get_timesheet_reference_options(current_user: dict = Depends(get_curre
         "purpose": "LLD labour dropdown/reference options",
         "generated_at": datetime.utcnow().isoformat() + "Z",
         "requested_by": {
-            "id": as_text(user_field("id")),
-            "email": as_text(user_field("email")),
-            "role": as_text(user_field("role"))
+            "id": as_text(user.get("id")),
+            "email": as_text(user.get("email")),
+            "role": as_text(user.get("role"))
         },
         "field_names": {
             "employee": "employee_name",
@@ -1834,10 +1839,12 @@ async def get_timesheet_reference_options(current_user: dict = Depends(get_curre
             "project_managers": len(pm_options),
             "task_codes": len(task_code_options)
         },
+        "source_warnings": source_warnings,
         "honest_status": {
             "read_only": True,
             "creates_timesheets": False,
             "approves_timesheets": False,
+            "fallback_safe": True,
             "intended_next_step": "Wire LLD labour dropdowns to these options, then add LLD to Timesheet draft import."
         }
     }
