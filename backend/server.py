@@ -1292,6 +1292,180 @@ async def export_fitoutos_labour_json(
         "skipped": skipped
     }
 
+@api_router.get("/timesheets/reference-options")
+async def get_timesheet_reference_options(request: Request):
+    """Read-only reference options for Timesheet-compatible labour capture.
+
+    Intended first consumer: LLD Daily Labour Rows.
+    This endpoint does not create or update timesheets.
+    """
+    user = await get_current_user(request)
+
+    def as_text(value, fallback=""):
+        if value is None:
+            return fallback
+        try:
+            clean = str(value).strip()
+            return clean if clean else fallback
+        except Exception:
+            return fallback
+
+    def as_bool(value, fallback=True):
+        if value is None:
+            return fallback
+        try:
+            return bool(value)
+        except Exception:
+            return fallback
+
+    def make_label(*parts):
+        clean_parts = [as_text(part) for part in parts if as_text(part)]
+        return " - ".join(clean_parts)
+
+    employee_options = []
+    pm_options = []
+    task_code_options = []
+    source_warnings = []
+
+    try:
+        users = await db.users.find(
+            {},
+            {
+                "_id": 1,
+                "email": 1,
+                "name": 1,
+                "role": 1,
+                "is_pro": 1
+            }
+        ).to_list(1000)
+
+        allowed_roles = {"employee", "project_manager", "admin"}
+        for item in users:
+            role = as_text(item.get("role"), "employee")
+            if role not in allowed_roles:
+                continue
+            if item.get("is_pro") is True:
+                continue
+
+            name = as_text(item.get("name")) or as_text(item.get("email"), "Unnamed user")
+            employee_options.append({
+                "id": str(item.get("_id", "")),
+                "name": name,
+                "email": as_text(item.get("email")),
+                "role": role,
+                "label": name,
+                "value": name,
+                "is_employee": True
+            })
+    except Exception as exc:
+        source_warnings.append(f"users unavailable: {str(exc)}")
+
+    try:
+        project_managers = await db.project_managers.find(
+            {},
+            {
+                "_id": 1,
+                "initials": 1,
+                "name": 1,
+                "email": 1
+            }
+        ).to_list(1000)
+
+        for pm in project_managers:
+            pm_id = str(pm.get("_id", ""))
+            pm_name = as_text(pm.get("name")) or as_text(pm.get("initials"), "Unnamed PM")
+            pm_options.append({
+                "id": pm_id,
+                "initials": as_text(pm.get("initials")),
+                "name": as_text(pm.get("name")),
+                "email": as_text(pm.get("email")),
+                "label": pm_name,
+                "value": pm_id
+            })
+    except Exception as exc:
+        source_warnings.append(f"project_managers unavailable: {str(exc)}")
+
+    try:
+        task_codes = await db.task_codes.find(
+            {},
+            {
+                "_id": 1,
+                "code": 1,
+                "description": 1,
+                "smartly_department_quick_code": 1,
+                "smartly_export_enabled": 1
+            }
+        ).to_list(1000)
+
+        for code in task_codes:
+            task_code = as_text(code.get("code"))
+            description = as_text(code.get("description"))
+            task_code_options.append({
+                "id": str(code.get("_id", "")),
+                "code": task_code,
+                "description": description,
+                "smartly_department_quick_code": as_text(code.get("smartly_department_quick_code")),
+                "smartly_export_enabled": as_bool(code.get("smartly_export_enabled"), True),
+                "label": make_label(task_code, description) or task_code,
+                "value": task_code
+            })
+    except Exception as exc:
+        source_warnings.append(f"task_codes unavailable: {str(exc)}")
+
+    employee_options.sort(key=lambda row: ((row.get("name") or "").lower(), (row.get("email") or "").lower()))
+    pm_options.sort(key=lambda row: ((row.get("name") or "").lower(), (row.get("initials") or "").lower()))
+    task_code_options.sort(key=lambda row: (row.get("code") or "").lower())
+
+    return {
+        "source": "Timesheet Manager",
+        "purpose": "LLD labour dropdown/reference options",
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "requested_by": {
+            "id": as_text(user.get("id")),
+            "email": as_text(user.get("email")),
+            "role": as_text(user.get("role"))
+        },
+        "field_names": {
+            "employee": "employee_name",
+            "start": "start_time",
+            "finish": "finish_time",
+            "lunch": "lunch_duration",
+            "hours": "total_hours",
+            "job": "job_number",
+            "task": "task_code",
+            "project_manager": "project_manager_id",
+            "description": "description"
+        },
+        "defaults": {
+            "period_type": "weekly",
+            "entry_type": "work",
+            "lunch_duration": "30",
+            "source": "LLD",
+            "sync_status": "local_only"
+        },
+        "lunch_options": [
+            {"label": "No lunch", "value": "0", "minutes": 0},
+            {"label": "30m", "value": "30", "minutes": 30},
+            {"label": "60m", "value": "60", "minutes": 60}
+        ],
+        "employees": employee_options,
+        "project_managers": pm_options,
+        "task_codes": task_code_options,
+        "counts": {
+            "employees": len(employee_options),
+            "project_managers": len(pm_options),
+            "task_codes": len(task_code_options)
+        },
+        "source_warnings": source_warnings,
+        "honest_status": {
+            "read_only": True,
+            "creates_timesheets": False,
+            "approves_timesheets": False,
+            "fallback_safe": True,
+            "intended_next_step": "Wire LLD labour dropdowns to these options, then add LLD to Timesheet draft import."
+        }
+    }
+
 @api_router.get("/timesheets/{timesheet_id}")
 async def get_timesheet(timesheet_id: str, request: Request):
     user = await get_current_user(request)
@@ -1674,180 +1848,6 @@ async def update_notification_settings(settings: NotificationSettingsUpdate, req
 
 # ==================== USERS MANAGEMENT (Admin) ====================
 
-
-@api_router.get("/timesheets/reference-options")
-async def get_timesheet_reference_options(request: Request):
-    """Read-only reference options for Timesheet-compatible labour capture.
-
-    Intended first consumer: LLD Daily Labour Rows.
-    This endpoint does not create or update timesheets.
-    """
-    user = await get_current_user(request)
-
-    def as_text(value, fallback=""):
-        if value is None:
-            return fallback
-        try:
-            clean = str(value).strip()
-            return clean if clean else fallback
-        except Exception:
-            return fallback
-
-    def as_bool(value, fallback=True):
-        if value is None:
-            return fallback
-        try:
-            return bool(value)
-        except Exception:
-            return fallback
-
-    def make_label(*parts):
-        clean_parts = [as_text(part) for part in parts if as_text(part)]
-        return " - ".join(clean_parts)
-
-    employee_options = []
-    pm_options = []
-    task_code_options = []
-    source_warnings = []
-
-    try:
-        users = await db.users.find(
-            {},
-            {
-                "_id": 1,
-                "email": 1,
-                "name": 1,
-                "role": 1,
-                "is_pro": 1
-            }
-        ).to_list(1000)
-
-        allowed_roles = {"employee", "project_manager", "admin"}
-        for item in users:
-            role = as_text(item.get("role"), "employee")
-            if role not in allowed_roles:
-                continue
-            if item.get("is_pro") is True:
-                continue
-
-            name = as_text(item.get("name")) or as_text(item.get("email"), "Unnamed user")
-            employee_options.append({
-                "id": str(item.get("_id", "")),
-                "name": name,
-                "email": as_text(item.get("email")),
-                "role": role,
-                "label": name,
-                "value": name,
-                "is_employee": True
-            })
-    except Exception as exc:
-        source_warnings.append(f"users unavailable: {str(exc)}")
-
-    try:
-        project_managers = await db.project_managers.find(
-            {},
-            {
-                "_id": 1,
-                "initials": 1,
-                "name": 1,
-                "email": 1
-            }
-        ).to_list(1000)
-
-        for pm in project_managers:
-            pm_id = str(pm.get("_id", ""))
-            pm_name = as_text(pm.get("name")) or as_text(pm.get("initials"), "Unnamed PM")
-            pm_options.append({
-                "id": pm_id,
-                "initials": as_text(pm.get("initials")),
-                "name": as_text(pm.get("name")),
-                "email": as_text(pm.get("email")),
-                "label": pm_name,
-                "value": pm_id
-            })
-    except Exception as exc:
-        source_warnings.append(f"project_managers unavailable: {str(exc)}")
-
-    try:
-        task_codes = await db.task_codes.find(
-            {},
-            {
-                "_id": 1,
-                "code": 1,
-                "description": 1,
-                "smartly_department_quick_code": 1,
-                "smartly_export_enabled": 1
-            }
-        ).to_list(1000)
-
-        for code in task_codes:
-            task_code = as_text(code.get("code"))
-            description = as_text(code.get("description"))
-            task_code_options.append({
-                "id": str(code.get("_id", "")),
-                "code": task_code,
-                "description": description,
-                "smartly_department_quick_code": as_text(code.get("smartly_department_quick_code")),
-                "smartly_export_enabled": as_bool(code.get("smartly_export_enabled"), True),
-                "label": make_label(task_code, description) or task_code,
-                "value": task_code
-            })
-    except Exception as exc:
-        source_warnings.append(f"task_codes unavailable: {str(exc)}")
-
-    employee_options.sort(key=lambda row: ((row.get("name") or "").lower(), (row.get("email") or "").lower()))
-    pm_options.sort(key=lambda row: ((row.get("name") or "").lower(), (row.get("initials") or "").lower()))
-    task_code_options.sort(key=lambda row: (row.get("code") or "").lower())
-
-    return {
-        "source": "Timesheet Manager",
-        "purpose": "LLD labour dropdown/reference options",
-        "generated_at": datetime.utcnow().isoformat() + "Z",
-        "requested_by": {
-            "id": as_text(user.get("id")),
-            "email": as_text(user.get("email")),
-            "role": as_text(user.get("role"))
-        },
-        "field_names": {
-            "employee": "employee_name",
-            "start": "start_time",
-            "finish": "finish_time",
-            "lunch": "lunch_duration",
-            "hours": "total_hours",
-            "job": "job_number",
-            "task": "task_code",
-            "project_manager": "project_manager_id",
-            "description": "description"
-        },
-        "defaults": {
-            "period_type": "weekly",
-            "entry_type": "work",
-            "lunch_duration": "30",
-            "source": "LLD",
-            "sync_status": "local_only"
-        },
-        "lunch_options": [
-            {"label": "No lunch", "value": "0", "minutes": 0},
-            {"label": "30m", "value": "30", "minutes": 30},
-            {"label": "60m", "value": "60", "minutes": 60}
-        ],
-        "employees": employee_options,
-        "project_managers": pm_options,
-        "task_codes": task_code_options,
-        "counts": {
-            "employees": len(employee_options),
-            "project_managers": len(pm_options),
-            "task_codes": len(task_code_options)
-        },
-        "source_warnings": source_warnings,
-        "honest_status": {
-            "read_only": True,
-            "creates_timesheets": False,
-            "approves_timesheets": False,
-            "fallback_safe": True,
-            "intended_next_step": "Wire LLD labour dropdowns to these options, then add LLD to Timesheet draft import."
-        }
-    }
 
 @api_router.get("/users")
 async def get_users(request: Request):
