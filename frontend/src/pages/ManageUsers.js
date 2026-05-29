@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
-import { ArrowLeft, Trash2, Users } from "lucide-react";
+import { ArrowLeft, Trash2, UserPlus, Users } from "lucide-react";
 import { format } from "date-fns";
 import Layout from "../components/Layout";
 
@@ -16,6 +16,14 @@ export default function ManageUsers() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingPayrollUserId, setSavingPayrollUserId] = useState(null);
+  const [showAddUser, setShowAddUser] = useState(false);
+  const [creatingUser, setCreatingUser] = useState(false);
+  const [newUser, setNewUser] = useState({
+    name: "",
+    email: "",
+    password: "",
+    role: "employee"
+  });
 
   useEffect(() => {
     fetchUsers();
@@ -32,6 +40,49 @@ export default function ManageUsers() {
     }
   };
 
+  const handleNewUserFieldChange = (field, value) => {
+    setNewUser((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleCreateUser = async (event) => {
+    event.preventDefault();
+
+    const payload = {
+      name: newUser.name.trim(),
+      email: newUser.email.trim().toLowerCase(),
+      password: newUser.password,
+      role: newUser.role || "employee"
+    };
+
+    if (!payload.name || !payload.email || !payload.password) {
+      toast.error("Name, email, and temporary password are required");
+      return;
+    }
+
+    if (payload.password.length < 8) {
+      toast.error("Temporary password must be at least 8 characters");
+      return;
+    }
+
+    setCreatingUser(true);
+
+    try {
+      const { data } = await axios.post(`${API}/users`, payload, { withCredentials: true });
+      setUsers((current) => [data, ...current]);
+      setNewUser({
+        name: "",
+        email: "",
+        password: "",
+        role: "employee"
+      });
+      setShowAddUser(false);
+      toast.success("User created");
+    } catch (err) {
+      toast.error(formatApiError(err));
+    } finally {
+      setCreatingUser(false);
+    }
+  };
   const handleRoleChange = async (userId, newRole) => {
     try {
       await axios.put(`${API}/users/${userId}/role`, { role: newRole }, { withCredentials: true });
@@ -121,6 +172,96 @@ export default function ManageUsers() {
           </div>
         </div>
 
+        <div className="mb-4 flex justify-end">
+          <Button
+            type="button"
+            onClick={() => setShowAddUser((current) => !current)}
+            data-testid="add-user-toggle"
+          >
+            <UserPlus className="w-4 h-4 mr-2" />
+            {showAddUser ? "Cancel" : "Add User"}
+          </Button>
+        </div>
+
+        {showAddUser && (
+          <form className="card mb-6 p-4" onSubmit={handleCreateUser} data-testid="add-user-panel">
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Add User</h2>
+              <p className="text-sm text-gray-500">
+                Create an admin-controlled login. Public registration remains disabled.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Name</label>
+                <Input
+                  value={newUser.name}
+                  onChange={(e) => handleNewUserFieldChange("name", e.target.value)}
+                  placeholder="Staff name"
+                  autoComplete="name"
+                  data-testid="new-user-name"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
+                <Input
+                  type="email"
+                  value={newUser.email}
+                  onChange={(e) => handleNewUserFieldChange("email", e.target.value)}
+                  placeholder="staff@example.co.nz"
+                  autoComplete="email"
+                  data-testid="new-user-email"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Temporary Password</label>
+                <Input
+                  type="password"
+                  value={newUser.password}
+                  onChange={(e) => handleNewUserFieldChange("password", e.target.value)}
+                  placeholder="Minimum 8 characters"
+                  autoComplete="new-password"
+                  data-testid="new-user-password"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Role</label>
+                <Select
+                  value={newUser.role}
+                  onValueChange={(value) => handleNewUserFieldChange("role", value)}
+                >
+                  <SelectTrigger data-testid="new-user-role">
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="employee">Employee</SelectItem>
+                    <SelectItem value="project_manager">Project Manager</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button type="submit" disabled={creatingUser} data-testid="create-user-submit">
+                {creatingUser ? "Creating..." : "Create User"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowAddUser(false)}
+                disabled={creatingUser}
+                data-testid="create-user-cancel"
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        )}
         {/* Users List */}
         <div className="card" data-testid="users-list">
           {users.length === 0 ? (

@@ -1913,6 +1913,61 @@ async def get_users(request: Request):
 
     return safe_users
 
+@api_router.post("/users", response_model=UserResponse)
+async def create_user(user_create: UserCreate, request: Request):
+    current_user = await get_current_user(request)
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    email = user_create.email.lower().strip()
+    name = user_create.name.strip()
+    password = user_create.password
+
+    if not name:
+        raise HTTPException(status_code=400, detail="Name is required")
+
+    if not password or len(password) < 8:
+        raise HTTPException(status_code=400, detail="Temporary password must be at least 8 characters")
+
+    role = user_create.role if user_create.role in ["employee", "project_manager", "admin"] else "employee"
+
+    existing = await db.users.find_one({"email": email})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    user_doc = {
+        "email": email,
+        "password_hash": hash_password(password),
+        "name": name,
+        "role": role,
+        "created_at": datetime.now(timezone.utc),
+        "notification_settings": {
+            "reminder_time": "17:00",
+            "reminder_day": "Friday",
+            "enabled": True
+        },
+        "smartly_employee_code": "",
+        "smartly_pay_group": "",
+        "payroll_treatment": "payroll_employee",
+        "smartly_costing_mode": "define_now",
+        "smartly_has_standard_hours": True
+    }
+
+    result = await db.users.insert_one(user_doc)
+
+    return {
+        "id": str(result.inserted_id),
+        "email": user_doc["email"],
+        "name": user_doc["name"],
+        "role": user_doc["role"],
+        "smartly_employee_code": user_doc["smartly_employee_code"],
+        "smartly_pay_group": user_doc["smartly_pay_group"],
+        "payroll_treatment": user_doc["payroll_treatment"],
+        "smartly_costing_mode": user_doc["smartly_costing_mode"],
+        "smartly_has_standard_hours": user_doc["smartly_has_standard_hours"],
+        "created_at": user_doc["created_at"].isoformat()
+    }
+
 @api_router.put("/users/{user_id}/role")
 async def update_user_role(user_id: str, request: Request):
     current_user = await get_current_user(request)
