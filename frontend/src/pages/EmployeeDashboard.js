@@ -44,14 +44,16 @@ export default function EmployeeDashboard() {
   };
 
   const handleDeleteTimesheet = async (timesheetId) => {
-    const ok = window.confirm("Delete this timesheet? This cannot be undone.");
+    const ok = window.confirm(
+      "Delete this rejected timesheet? This only removes a rejected, unprocessed review record. Processed/exported timesheets need an adjustment instead."
+    );
     if (!ok) return;
 
     try {
       await axios.delete(`${API}/timesheets/${timesheetId}`, { withCredentials: true });
       setTimesheets((prev) => prev.filter((ts) => ts.id !== timesheetId));
       setStats((prev) => ({ ...prev, total: Math.max(0, (prev.total || 0) - 1) }));
-      toast.success("Timesheet deleted");
+      toast.success("Rejected timesheet deleted");
     } catch (err) {
       console.error(err);
       toast.error(formatApiError(err, "Delete failed"));
@@ -243,16 +245,18 @@ export default function EmployeeDashboard() {
         Edit
       </Button>
     )}
-
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={() => handleDeleteTimesheet(ts.id)}
-      data-testid={`delete-timesheet-${ts.id}`}
-    >
-      <Trash2 className="w-4 h-4 mr-1" />
-      Delete
-    </Button>
+    {user?.role === "admin" && ts.status === "rejected" && (
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => handleDeleteTimesheet(ts.id)}
+        className="text-red-600 hover:text-red-700"
+        data-testid={`delete-timesheet-${ts.id}`}
+      >
+        <Trash2 className="w-4 h-4 mr-1" />
+        Delete rejected
+      </Button>
+    )}
   </div>
 </td>
                     </tr>

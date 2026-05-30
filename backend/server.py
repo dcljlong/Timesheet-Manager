@@ -1997,15 +1997,40 @@ async def update_timesheet(timesheet_id: str, update: TimesheetUpdate, request: 
 async def delete_timesheet(timesheet_id: str, request: Request):
     user = await get_current_user(request)
 
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
     timesheet = await db.timesheets.find_one({"_id": ObjectId(timesheet_id)})
     if not timesheet:
         raise HTTPException(status_code=404, detail="Timesheet not found")
 
-    if timesheet.get("user_id", "") != user["id"] and user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Access denied")
+    if timesheet.get("status") != "rejected":
+        raise HTTPException(
+            status_code=400,
+            detail="Only rejected, unprocessed timesheets can be deleted. Processed/exported timesheets need an adjustment instead."
+        )
+
+    processed_markers = [
+        "pm_approved",
+        "admin_approved",
+        "payroll_export_ready",
+        "smartly_exported",
+        "exported",
+        "processed",
+        "fitoutos_synced",
+        "fitoutos_pushed",
+        "actuals_synced",
+        "synced_to_fitoutos",
+    ]
+
+    if any(bool(timesheet.get(marker)) for marker in processed_markers):
+        raise HTTPException(
+            status_code=400,
+            detail="Only rejected, unprocessed timesheets can be deleted. Processed/exported timesheets need an adjustment instead."
+        )
 
     await db.timesheets.delete_one({"_id": ObjectId(timesheet_id)})
-    return {"message": "Timesheet deleted"}
+    return {"message": "Rejected unprocessed timesheet deleted"}
 
 @api_router.post("/timesheets/{timesheet_id}/pm-approve")
 async def pm_approve_timesheet(timesheet_id: str, approval: TimesheetApproval, request: Request):

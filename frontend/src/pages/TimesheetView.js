@@ -5,7 +5,7 @@ import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
-import { ArrowLeft, Download, CheckCircle, XCircle, Edit } from "lucide-react";
+import { ArrowLeft, Download, CheckCircle, XCircle, Edit, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import Layout from "../components/Layout";
 import SignaturePad from "../components/SignaturePad";
@@ -22,6 +22,7 @@ export default function TimesheetView() {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [pmSignature, setPmSignature] = useState(null);
   const [showApproveModal, setShowApproveModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -139,6 +140,30 @@ export default function TimesheetView() {
     }
   };
 
+  const canDeleteRejectedTimesheet = () => {
+    if (!timesheet) return false;
+    return user?.role === "admin" && timesheet.status === "rejected";
+  };
+
+  const handleDeleteRejectedTimesheet = async () => {
+    const ok = window.confirm(
+      "Delete this rejected timesheet? This only removes a rejected, unprocessed review record. Processed/exported timesheets need an adjustment instead."
+    );
+
+    if (!ok) return;
+
+    setDeleting(true);
+    try {
+      await axios.delete(`${API}/timesheets/${id}`, { withCredentials: true });
+      toast.success("Rejected timesheet deleted");
+      navigate("/admin");
+    } catch (err) {
+      toast.error(formatApiError(err, "Delete failed"));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const exportPDF = () => {
     // Print-friendly version
     window.print();
@@ -178,6 +203,18 @@ export default function TimesheetView() {
               <Button variant="outline" onClick={() => navigate(`/timesheet/${id}/edit`)} data-testid="edit-button">
                 <Edit className="w-4 h-4 mr-2" />
                 Edit
+              </Button>
+            )}
+            {canDeleteRejectedTimesheet() && (
+              <Button
+                variant="outline"
+                onClick={handleDeleteRejectedTimesheet}
+                className="text-red-600 border-red-300 hover:bg-red-50"
+                disabled={deleting}
+                data-testid="delete-rejected-timesheet-button"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                {deleting ? "Deleting..." : "Delete rejected"}
               </Button>
             )}
             <Button variant="outline" onClick={exportPDF} data-testid="export-button">
