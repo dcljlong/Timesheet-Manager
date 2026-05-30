@@ -160,39 +160,47 @@ export default function ManageUsers() {
     <Layout>
       <div className="fade-in" data-testid="manage-users">
         {/* Header */}
-        <div className="flex items-center mb-6">
-          <Button variant="ghost" onClick={() => navigate(-1)} className="mr-4" data-testid="back-button">
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900" data-testid="page-title">
-              Manage Users
-            </h1>
-            <p className="text-gray-500">View and manage user accounts and roles</p>
+        <div className="mb-6 rounded-2xl border border-gray-200 bg-white/80 p-4 shadow-sm sm:p-5" data-testid="users-page-header-polished">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-3">
+              <Button variant="ghost" onClick={() => navigate(-1)} className="mt-1 shrink-0" data-testid="back-button">
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+              <div>
+                <p className="mb-1 text-xs font-bold uppercase tracking-[0.18em] text-amber-700">Admin Controls</p>
+                <h1 className="text-3xl font-extrabold tracking-tight text-gray-950" data-testid="page-title">
+                  Manage Users
+                </h1>
+                <p className="mt-1 max-w-3xl text-sm text-gray-600">
+                  Create staff logins, control roles, and maintain payroll export details before loading the full team.
+                </p>
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              onClick={() => setShowAddUser((current) => !current)}
+              className="w-full justify-center lg:w-auto"
+              data-testid="add-user-toggle"
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              {showAddUser ? "Cancel" : "Add User"}
+            </Button>
           </div>
         </div>
 
-        <div className="mb-4 flex justify-end">
-          <Button
-            type="button"
-            onClick={() => setShowAddUser((current) => !current)}
-            data-testid="add-user-toggle"
-          >
-            <UserPlus className="w-4 h-4 mr-2" />
-            {showAddUser ? "Cancel" : "Add User"}
-          </Button>
-        </div>
+
 
         {showAddUser && (
-          <form className="card mb-6 p-4" onSubmit={handleCreateUser} data-testid="add-user-panel">
+          <form className="mb-6 rounded-2xl border border-amber-200 bg-amber-50/40 p-4 shadow-sm sm:p-5" onSubmit={handleCreateUser} data-testid="add-user-panel">
             <div className="mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Add User</h2>
+              <h2 className="text-xl font-bold text-gray-950">Add User</h2>
               <p className="text-sm text-gray-500">
                 Create an admin-controlled login. Public registration remains disabled.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Name</label>
                 <Input
@@ -263,15 +271,24 @@ export default function ManageUsers() {
           </form>
         )}
         {/* Users List */}
-        <div className="card" data-testid="users-list">
+        <div className="card overflow-hidden border border-gray-200 shadow-sm" data-testid="users-list">
+          <div className="flex flex-col gap-2 border-b border-gray-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-gray-950">Staff / User Accounts</h2>
+              <p className="text-sm text-gray-600">Use the scrollable payroll table for Smartly details. Create and prove staff one at a time before bulk loading.</p>
+            </div>
+            <span className="inline-flex w-fit items-center rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-gray-600">
+              {users.length} users
+            </span>
+          </div>
           {users.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
+            <div className="p-10 text-center text-gray-500">
               <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
               <p>No users found</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="data-table">
+              <table className="data-table min-w-[1180px] text-sm">
                 <thead>
                   <tr>
                     <th>Name</th>
