@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
-import { ArrowLeft, Trash2, UserPlus, Users } from "lucide-react";
+import { ArrowLeft, Mail, Trash2, UserPlus, Users } from "lucide-react";
 import { format } from "date-fns";
 import Layout from "../components/Layout";
 
@@ -116,6 +116,43 @@ export default function ManageUsers() {
     } finally {
       setSavingPayrollUserId(null);
     }
+  };
+
+  const handleInviteUser = (targetUser) => {
+    const email = (targetUser?.email || "").trim();
+
+    if (!email) {
+      toast.error("User email is required before sending an invite");
+      return;
+    }
+
+    const name = (targetUser?.name || "there").trim() || "there";
+    const subject = encodeURIComponent("Timesheet Manager access");
+    const body = encodeURIComponent([
+      `Hi ${name},`,
+      "",
+      "You have been added to Timesheet Manager.",
+      "",
+      "Open the app here:",
+      "https://timesheet-manager-two.vercel.app",
+      "",
+      `Your login email is: ${email}`,
+      "David will provide your temporary password separately.",
+      "",
+      "Save it to your phone:",
+      "iPhone: open the link in Safari, tap Share, then Add to Home Screen.",
+      "Android: open the link in Chrome, tap the three-dot menu, then Add to Home screen or Install app.",
+      "",
+      "Use Timesheet Manager for real work time only. Please do not enter test rows.",
+      "Check the job, task code, start time, finish time, and lunch break before submitting.",
+      "",
+      "If something is wrong, let David know rather than deleting or working around it.",
+      "",
+      "Thanks"
+    ].join("\n"));
+
+    window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+    toast.success("Invite email draft opened");
   };
 
   const handleDelete = async (userId, name) => {
@@ -288,7 +325,7 @@ export default function ManageUsers() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="data-table min-w-[1180px] text-sm">
+              <table className="data-table min-w-[1280px] text-sm">
                 <thead>
                   <tr>
                     <th>Name</th>
@@ -387,6 +424,17 @@ export default function ManageUsers() {
                             className="mr-2"
                           >
                             {savingPayrollUserId === u.id ? "Saving..." : "Save Payroll"}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleInviteUser(u)}
+                            className="mr-2"
+                            data-testid={`invite-user-${u.id}`}
+                          >
+                            <Mail className="mr-1 h-4 w-4" />
+                            Invite
                           </Button>
                         <Button
                           variant="ghost"
