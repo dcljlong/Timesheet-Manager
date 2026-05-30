@@ -115,6 +115,32 @@ class TimesheetCreate(BaseModel):
     total_hours: float = 0
     employee_signature: Optional[str] = None  # Base64 encoded signature
 
+class LLDLabourImportRow(BaseModel):
+    id: Optional[str] = None
+    source_row_id: Optional[str] = None
+    employee_id: Optional[str] = None
+    employee_name: str
+    work_date: str
+    day: Optional[str] = None
+    start_time: str
+    lunch_duration: Optional[str] = "30"
+    finish_time: str
+    total_hours: Optional[float] = None
+    job_number: str
+    task_code: str
+    project_manager_id: str
+    description: Optional[str] = None
+    other: Optional[str] = None
+    source_diary_project_id: Optional[str] = None
+    source_diary_date: Optional[str] = None
+    source: Optional[str] = "LLD"
+    sync_status: Optional[str] = "local_only"
+
+class LLDLabourDraftImport(BaseModel):
+    source_diary_project_id: Optional[str] = None
+    source_diary_date: Optional[str] = None
+    rows: List[LLDLabourImportRow]
+
 class TimesheetUpdate(BaseModel):
     week_ending: Optional[str] = None
     period_type: Optional[str] = None
@@ -566,6 +592,357 @@ async def create_timesheet(timesheet: TimesheetCreate, request: Request):
     )
 
     return {"id": str(result.inserted_id), "status": "submitted", "message": "Timesheet submitted successfully"}
+
+@api_router.post("/timesheets/lld-draft-import")
+async def import_lld_labour_drafts(payload: LLDLabourDraftImport, request: Request):
+    """Import LLD diary labour rows as review-only Timesheet records.
+
+    This endpoint creates submitted/pending-review timesheets only.
+    It does not PM approve, admin approve, or export payroll records.
+    """
+    configured_import_token = (os.environ.get("LLS_LLD_IMPORT_TOKEN") or "").strip()
+    supplied_import_token = (request.headers.get("X-LLS-Import-Token") or "").strip()
+
+    if configured_import_token and supplied_import_token and secrets.compare_digest(configured_import_token, supplied_import_token):
+        actor = {
+            "id": "service:lld",
+            "email": "lld-import",
+            "role": "integration"
+        }
+        auth_mode = "integration_token"
+    else:
+        actor = await get_current_user(request)
+        auth_mode = "user_token"
+        if actor.get("role") != "admin":
+            raise HTTPException(status_code=403, detail="Admin only")
+
+    if not payload.rows:
+        raise HTTPException(status_code=400, detail="At least one LLD labour row is required")
+
+    def clean_text(value, fallback=""):
+        if value is None:
+            return fallback
+        text = str(value).strip()
+        return text if text else fallback
+
+    def parse_work_date(value):
+        text = clean_text(value)
+        if not text:
+            return None
+        try:
+            return datetime.fromisoformat(text).date()
+        except Exception:
+            return None
+
+    def minutes_from_time(value):
+        text = clean_text(value).lower().replace(".", "")
+        if not text:
+            return None
+
+        suffix = None
+        if text.endswith("am"):
+            suffix = "am"
+            text = text[:-2].strip()
+        elif text.endswith("pm"):
+            suffix = "pm"
+            text = text[:-2].strip()
+
+        if ":" not in text:
+            return None
+
+        try:
+            hour_text, minute_text = text.split(":", 1)
+            hour = int(hour_text)
+            minute = int(minute_text[:2])
+        except Exception:
+            return None
+
+        if suffix == "pm" and hour < 12:
+            hour += 12
+        if suffix == "am" and hour == 12:
+            hour = 0
+
+        if hour < 0 or hour > 23 or minute < 0 or minute > 59:
+            return None
+
+        return (hour * 60) + minute
+
+    def calculate_hours(start_time, finish_time, lunch_duration):
+        start_minutes = minutes_from_time(start_time)
+        finish_minutes = minutes_from_time(finish_time)
+        if start_minutes is None or finish_minutes is None:
+            return None
+        if finish_minutes <= start_minutes:
+            return None
+        try:
+            lunch_minutes = float(clean_text(lunch_duration, "0"))
+        except Exception:
+            lunch_minutes = 0
+        return max(0, round(((finish_minutes - start_minutes) - lunch_minutes) / 60, 2))
+
+    days_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    groups = {}
+    issues = []
+    skipped = []
+    seen_import_keys = set()
+    import_batch_id = str(ObjectId())
+    imported_at = datetime.now(timezone.utc)
+
+    for index, row in enumerate(payload.rows):
+        row_number = index + 1
+        employee_name = clean_text(row.employee_name)
+        employee_id = clean_text(row.employee_id)
+        work_date_obj = parse_work_date(row.work_date)
+        start_time = clean_text(row.start_time)
+        finish_time = clean_text(row.finish_time)
+        lunch_duration = clean_text(row.lunch_duration, "30")
+        job_number = clean_text(row.job_number)
+        task_code = clean_text(row.task_code)
+        project_manager_id = clean_text(row.project_manager_id)
+        description = clean_text(row.description or row.other)
+        source_diary_project_id = clean_text(row.source_diary_project_id or payload.source_diary_project_id)
+        source_diary_date = clean_text(row.source_diary_date or payload.source_diary_date or row.work_date)
+        source_row_id = clean_text(row.source_row_id or row.id)
+
+        required_missing = []
+        if not employee_name:
+            required_missing.append("employee_name")
+        if not work_date_obj:
+            required_missing.append("work_date")
+        if not start_time:
+            required_missing.append("start_time")
+        if not finish_time:
+            required_missing.append("finish_time")
+        if not job_number:
+            required_missing.append("job_number")
+        if not task_code:
+            required_missing.append("task_code")
+        if not project_manager_id:
+            required_missing.append("project_manager_id")
+
+        if required_missing:
+            issues.append({
+                "row_number": row_number,
+                "employee_name": employee_name,
+                "reason": f"Missing required fields: {', '.join(required_missing)}"
+            })
+            continue
+
+        total_hours = row.total_hours
+        if total_hours is None or float(total_hours or 0) <= 0:
+            total_hours = calculate_hours(start_time, finish_time, lunch_duration)
+
+        try:
+            total_hours = float(total_hours or 0)
+        except Exception:
+            total_hours = 0
+
+        if total_hours <= 0:
+            issues.append({
+                "row_number": row_number,
+                "employee_name": employee_name,
+                "reason": "Hours must be greater than zero and finish time must be after start time"
+            })
+            continue
+
+        user_doc = None
+        if employee_id:
+            try:
+                user_doc = await db.users.find_one({"_id": ObjectId(employee_id), "is_pro": {"$ne": True}})
+            except Exception:
+                user_doc = None
+
+        if not user_doc:
+            user_doc = await db.users.find_one({
+                "name": employee_name,
+                "role": {"$in": ["employee", "project_manager", "admin"]},
+                "is_pro": {"$ne": True}
+            })
+
+        if not user_doc:
+            issues.append({
+                "row_number": row_number,
+                "employee_name": employee_name,
+                "reason": "No matching Timesheet user found for employee"
+            })
+            continue
+
+        task_doc = await db.task_codes.find_one({"code": task_code})
+        if not task_doc:
+            issues.append({
+                "row_number": row_number,
+                "employee_name": employee_name,
+                "reason": f"Unknown task code: {task_code}"
+            })
+            continue
+
+        try:
+            pm_doc = await db.project_managers.find_one({"_id": ObjectId(project_manager_id)})
+        except Exception:
+            pm_doc = None
+
+        if not pm_doc:
+            issues.append({
+                "row_number": row_number,
+                "employee_name": employee_name,
+                "reason": "Unknown project manager"
+            })
+            continue
+
+        day_name = clean_text(row.day) or work_date_obj.strftime("%A")
+        if day_name not in days_order:
+            day_name = work_date_obj.strftime("%A")
+
+        week_ending = (work_date_obj + timedelta(days=(6 - work_date_obj.weekday()))).isoformat()
+        raw_source_id = source_row_id or f"{employee_name}:{work_date_obj.isoformat()}:{start_time}:{finish_time}:{job_number}:{task_code}:{project_manager_id}"
+        source_import_key = f"lld:{source_diary_project_id}:{source_diary_date}:{raw_source_id}"
+
+        if source_import_key in seen_import_keys:
+            skipped.append({
+                "row_number": row_number,
+                "employee_name": employee_name,
+                "reason": "Duplicate row in import payload",
+                "source_import_key": source_import_key
+            })
+            continue
+
+        existing_import = await db.timesheets.find_one(
+            {"days.entries.source_import_key": source_import_key},
+            {"_id": 1, "employee_name": 1, "week_ending": 1}
+        )
+        if existing_import:
+            skipped.append({
+                "row_number": row_number,
+                "employee_name": employee_name,
+                "reason": "LLD row was already imported",
+                "existing_timesheet_id": str(existing_import.get("_id")),
+                "source_import_key": source_import_key
+            })
+            continue
+
+        seen_import_keys.add(source_import_key)
+
+        user_id = str(user_doc["_id"])
+        group_key = f"{user_id}:{week_ending}"
+
+        if group_key not in groups:
+            groups[group_key] = {
+                "user_id": user_id,
+                "employee_name": clean_text(user_doc.get("name"), employee_name),
+                "week_ending": week_ending,
+                "days": {day: [] for day in days_order},
+                "pm_ids": set(),
+                "source_import_keys": []
+            }
+
+        entry = {
+            "type": "work",
+            "start_time": start_time,
+            "lunch_duration": lunch_duration,
+            "finish_time": finish_time,
+            "total_hours": total_hours,
+            "job_number": job_number,
+            "task_code": task_code,
+            "project_manager_id": project_manager_id,
+            "description": description,
+            "other": description,
+            "source": "LLD",
+            "source_type": "lld_diary_labour_import",
+            "source_row_id": raw_source_id,
+            "source_import_key": source_import_key,
+            "source_diary_project_id": source_diary_project_id,
+            "source_diary_date": source_diary_date,
+            "work_date": work_date_obj.isoformat(),
+            "import_batch_id": import_batch_id,
+            "imported_at": imported_at.isoformat()
+        }
+
+        groups[group_key]["days"][day_name].append(entry)
+        groups[group_key]["pm_ids"].add(project_manager_id)
+        groups[group_key]["source_import_keys"].append(source_import_key)
+
+    created_timesheets = []
+    created_entry_count = 0
+
+    for group in groups.values():
+        days_data = [
+            {"day": day, "entries": group["days"][day]}
+            for day in days_order
+        ]
+        total_hours = round(
+            sum(float(entry.get("total_hours", 0) or 0) for day in days_data for entry in day["entries"]),
+            2
+        )
+
+        validate_timesheet_entries(days_data, require_signature=False, employee_signature=None)
+
+        doc = {
+            "user_id": group["user_id"],
+            "employee_name": group["employee_name"],
+            "week_ending": group["week_ending"],
+            "period_type": "weekly",
+            "days": days_data,
+            "messages": f"Imported from LLD diary labour rows. Import batch {import_batch_id}. Review before approval/export.",
+            "nights_away": 0,
+            "total_hours": total_hours,
+            "employee_signature": None,
+            "status": "submitted",
+            "pm_ids": sorted(group["pm_ids"]),
+            "pm_signatures": [],
+            "pm_approved": False,
+            "pm_approved_by": None,
+            "pm_approved_at": None,
+            "admin_approved": False,
+            "admin_approved_by": None,
+            "admin_approved_at": None,
+            "rejection_comment": None,
+            "pm_edit_history": [],
+            "pm_last_edited_by": None,
+            "pm_last_edited_name": None,
+            "pm_last_edited_at": None,
+            "pm_edit_reason": None,
+            "source": "LLD",
+            "source_type": "lld_diary_labour_import",
+            "import_status": "pending_review",
+            "import_batch_id": import_batch_id,
+            "source_import_keys": group["source_import_keys"],
+            "imported_by": actor.get("id"),
+            "imported_by_email": actor.get("email"),
+            "import_auth_mode": auth_mode,
+            "created_at": imported_at,
+            "updated_at": imported_at
+        }
+
+        result = await db.timesheets.insert_one(doc)
+        created_timesheets.append({
+            "id": str(result.inserted_id),
+            "employee_name": group["employee_name"],
+            "week_ending": group["week_ending"],
+            "total_hours": total_hours,
+            "status": "submitted",
+            "import_status": "pending_review"
+        })
+        created_entry_count += sum(len(day["entries"]) for day in days_data)
+
+    return {
+        "status": "imported_for_review",
+        "message": "LLD labour rows imported as submitted Timesheet records for PM/admin review. No records were approved.",
+        "import_batch_id": import_batch_id,
+        "created_timesheet_count": len(created_timesheets),
+        "created_entry_count": created_entry_count,
+        "skipped_count": len(skipped),
+        "issue_count": len(issues),
+        "created_timesheets": created_timesheets,
+        "skipped": skipped,
+        "issues": issues,
+        "honest_status": {
+            "creates_timesheets": True,
+            "status_created": "submitted",
+            "pm_approved": False,
+            "admin_approved": False,
+            "payroll_export_ready": False
+        }
+    }
 @api_router.get("/timesheets")
 async def get_timesheets(request: Request, status: Optional[str] = None):
     user = await get_current_user(request)
