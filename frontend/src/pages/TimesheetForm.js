@@ -20,6 +20,48 @@ const TIMESHEET_DRAFT_KEY = "timesheet_form_draft_v1";
 const DRAFT_DEBUG_KEY = "timesheet_form_draft_v1";
 const REFERENCE_LIST_REFRESH_MS = 60000;
 const TIME_ROUNDING_MINUTES = 15;
+const MOBILE_TIME_DEFAULTS_KEY = "timesheet_mobile_time_defaults_v1";
+const DEFAULT_MOBILE_TIME_DEFAULTS = Object.freeze({
+  start_time: "07:30",
+  finish_time: "16:30",
+  lunch_duration: "30"
+});
+
+const getFreshStartSessionKey = (stamp) =>
+  `${TIMESHEET_DRAFT_KEY}_fresh_start_consumed_${stamp || "default"}`;
+
+const hasConsumedFreshStart = (stamp) => {
+  try {
+    return window.sessionStorage.getItem(getFreshStartSessionKey(stamp)) === "1";
+  } catch (e) {
+    return false;
+  }
+};
+
+const markFreshStartConsumed = (stamp) => {
+  try {
+    window.sessionStorage.setItem(getFreshStartSessionKey(stamp), "1");
+  } catch (e) {
+    // Ignore storage failures; draft save still works through localStorage where available.
+  }
+};
+
+const readMobileTimeDefaults = () => {
+  try {
+    const raw = window.localStorage.getItem(MOBILE_TIME_DEFAULTS_KEY);
+    return raw ? { ...DEFAULT_MOBILE_TIME_DEFAULTS, ...JSON.parse(raw) } : DEFAULT_MOBILE_TIME_DEFAULTS;
+  } catch (e) {
+    return DEFAULT_MOBILE_TIME_DEFAULTS;
+  }
+};
+
+const writeMobileTimeDefaults = (nextDefaults) => {
+  try {
+    window.localStorage.setItem(MOBILE_TIME_DEFAULTS_KEY, JSON.stringify(nextDefaults));
+  } catch (e) {
+    // Ignore storage failures; entry save still continues.
+  }
+};
 
 const getDraftKey = (isEditing, id) =>
   isEditing && id ? `${TIMESHEET_DRAFT_KEY}_edit_${id}` : TIMESHEET_DRAFT_KEY;
@@ -27,7 +69,7 @@ const getDraftKey = (isEditing, id) =>
 const emptyEntry = () => ({
   type: "work",
   start_time: "",
-  lunch_duration: "",
+  lunch_duration: "30",
   finish_time: "",
   total_hours: 0,
   job_number: "",
@@ -88,7 +130,7 @@ export default function TimesheetForm() {
   const [taskCodes, setTaskCodes] = useState([]);
   const [jobNumbers, setJobNumbers] = useState([]);
   const [projectManagers, setPMs] = useState([]);
-  const [defaults, setDefaults] = useState(null);
+  const [defaults, setDefaults] = useState(() => readMobileTimeDefaults());
 
   // Form state
   const [employeeName, setEmployeeName] = useState(user?.name || "");
@@ -279,11 +321,11 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
   };
 
   const startEntryNow = (dayIndex, entryIndex) => {
-    updateEntry(dayIndex, entryIndex, "start_time", getCurrentTimeString());
+    setEntryRoundedNow(dayIndex, entryIndex, "start_time");
   };
 
   const finishEntryNow = (dayIndex, entryIndex) => {
-    updateEntry(dayIndex, entryIndex, "finish_time", getCurrentTimeString());
+    setEntryRoundedNow(dayIndex, entryIndex, "finish_time");
   };
 
   const formatMinutesAsTime = (totalMinutes) => {
@@ -345,18 +387,62 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
     return formatMinutesAsTime(roundMinutesToStep(minutes));
   };
 
-  const normaliseManualTimeInput = (value) => {
-    const minutes = parseManualTimeToMinutes(value);
+  const hasManualMeridiem = (value) => /[ap]/i.test(String(value || ""));
+
+  const inferManualTimeMinutes = (value, field = "start_time", entry = null) => {
+    let minutes = parseManualTimeToMinutes(value);
+    if (minutes === null) return null;
+
+    if (!hasManualMeridiem(value) && field === "finish_time" && entry?.start_time) {
+      const startMinutes = parseManualTimeToMinutes(entry.start_time);
+      if (startMinutes !== null && minutes <= startMinutes && minutes + (12 * 60) < (24 * 60)) {
+        minutes += 12 * 60;
+      }
+    }
+
+    return minutes;
+  };
+
+  const saveMobileTimeDefaults = (patch) => {
+    const nextDefaults = { ...DEFAULT_MOBILE_TIME_DEFAULTS, ...(defaults || {}), ...patch };
+    setDefaults(nextDefaults);
+    writeMobileTimeDefaults(nextDefaults);
+    return nextDefaults;
+  };
+
+  const normaliseManualTimeInput = (value, field = "start_time", entry = null) => {
+    const minutes = inferManualTimeMinutes(value, field, entry);
     if (minutes === null) return "";
     return formatMinutesAsTime(roundMinutesToStep(minutes));
+  };
+
+  const applyManualEntryTime = (dayIndex, entryIndex, field, value) => {
+    const entry = days[dayIndex]?.entries?.[entryIndex] || null;
+    const nextValue = normaliseManualTimeInput(value, field, entry);
+    updateEntry(dayIndex, entryIndex, field, nextValue);
+    if (nextValue) saveMobileTimeDefaults({ [field]: nextValue });
+  };
+
+  const setEntryDefaultTime = (dayIndex, entryIndex, field) => {
+    const nextValue = defaults?.[field] || DEFAULT_MOBILE_TIME_DEFAULTS[field] || getCurrentTimeString();
+    updateEntry(dayIndex, entryIndex, field, nextValue);
+    saveMobileTimeDefaults({ [field]: nextValue });
+  };
+
+  const setEntryRoundedNow = (dayIndex, entryIndex, field) => {
+    const nextValue = getCurrentTimeString();
+    updateEntry(dayIndex, entryIndex, field, nextValue);
+    saveMobileTimeDefaults({ [field]: nextValue });
   };
 
   const adjustEntryTime = (dayIndex, entryIndex, field, deltaMinutes) => {
     const current = days[dayIndex]?.entries?.[entryIndex]?.[field];
     const currentMinutes = parseManualTimeToMinutes(current);
-    const fallbackMinutes = parseManualTimeToMinutes(getCurrentTimeString()) || 0;
+    const fallbackMinutes = parseManualTimeToMinutes(defaults?.[field] || DEFAULT_MOBILE_TIME_DEFAULTS[field] || getCurrentTimeString()) || 0;
     const nextMinutes = (currentMinutes === null ? fallbackMinutes : currentMinutes) + deltaMinutes;
-    updateEntry(dayIndex, entryIndex, field, formatMinutesAsTime(nextMinutes));
+    const nextValue = formatMinutesAsTime(nextMinutes);
+    updateEntry(dayIndex, entryIndex, field, nextValue);
+    saveMobileTimeDefaults({ [field]: nextValue });
   };
 
   const openTimePicker = (testId) => {
@@ -402,6 +488,9 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
 
   useEffect(() => {
     if (!isFreshStart) return;
+    if (hasConsumedFreshStart(freshStartStamp)) return;
+
+    markFreshStartConsumed(freshStartStamp);
 
     const draftKey = getDraftKey(false);
     localStorage.removeItem(draftKey);
@@ -433,7 +522,8 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
 
   const draftKey = getDraftKey(isEditing, id);
 
-  if (isFreshStart) {
+  if (isFreshStart && !hasConsumedFreshStart(freshStartStamp)) {
+    markFreshStartConsumed(freshStartStamp);
     localStorage.removeItem(draftKey);
     draftRef.current = null;
     draftLoadedRef.current = true;
@@ -493,7 +583,7 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
 
   loadTimesheet();
 
-}, [isEditing, id, user]);
+}, [isEditing, id, user, isFreshStart, freshStartStamp]);
 
 const handleSubmit = async (e) => {
   e.preventDefault();
@@ -677,9 +767,8 @@ const handleSubmit = async (e) => {
     };
   }, []);
   useEffect(() => {
-    
+    if (!draftLoadedRef.current) return;
 
-    if (!draftLoadedRef.current) {
     const draft = {
       employee_name: employeeName,
       period_type: periodType,
@@ -691,9 +780,7 @@ const handleSubmit = async (e) => {
     };
 
     draftRef.current = draft;
-      draftLoadedRef.current = true;
     localStorage.setItem(getDraftKey(isEditing, id), JSON.stringify(draft));
-    }
   }, [employeeName, periodType, weekEnding, days, messages, nightsAway, employeeSignature, isEditing, id]);
   // LOAD task codes + project managers
   
@@ -710,7 +797,7 @@ const handleSubmit = async (e) => {
 
   return (
     <Layout>
-      <div className="fade-in" data-testid="timesheet-form">
+      <div className="fade-in w-full max-w-full overflow-x-hidden" data-testid="timesheet-form">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center">
@@ -793,9 +880,9 @@ const handleSubmit = async (e) => {
           </div>
 
           {/* Mobile Timesheet Day Cards */}
-          <div className="lg:hidden space-y-4 mb-6" data-testid="timesheet-mobile-grid">
+          <div className="lg:hidden w-full max-w-full min-w-0 overflow-x-hidden space-y-4 mb-6" data-testid="timesheet-mobile-grid">
             {days.map((day, dayIndex) => (
-              <div key={day.day || dayIndex} className="card p-3" data-testid={"mobile-day-card-" + dayIndex}>
+              <div key={day.day || dayIndex} className="card p-3 w-full max-w-full min-w-0 overflow-hidden" data-testid={"mobile-day-card-" + dayIndex}>
                 <div className="flex items-center justify-between gap-3 mb-3">
                   <div className="min-w-0">
                     <h2 className="text-sm font-semibold text-gray-900">{day.day}</h2>
@@ -816,7 +903,7 @@ const handleSubmit = async (e) => {
                   {day.entries.map((entry, entryIndex) => (
                     <div
                       key={dayIndex + "-" + entryIndex}
-                      className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm"
+                      className="w-full max-w-full min-w-0 overflow-hidden rounded-lg border border-gray-200 bg-white p-3 shadow-sm"
                       data-testid={"mobile-entry-" + dayIndex + "-" + entryIndex}
                     >
                       <div className="flex items-center justify-between gap-3 mb-3">
@@ -844,26 +931,27 @@ const handleSubmit = async (e) => {
                           </select>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <div>
                             <Label className="text-[11px]">Start</Label>
                             <Input
                               type="text"
                               inputMode="numeric"
-                              placeholder={getCurrentTimeString()}
+                              placeholder={defaults?.start_time || DEFAULT_MOBILE_TIME_DEFAULTS.start_time}
                               value={entry.start_time || ""}
                               disabled={isLeaveType(entry.type)}
-                              onFocus={() => {
-                                if (!entry.start_time) updateEntry(dayIndex, entryIndex, "start_time", getCurrentTimeString());
+                              onFocus={(e) => {
+                                e.target.select();
+                                if (!entry.start_time) setEntryDefaultTime(dayIndex, entryIndex, "start_time");
                               }}
                               onChange={(e) => updateEntry(dayIndex, entryIndex, "start_time", e.target.value)}
-                              onBlur={(e) => updateEntry(dayIndex, entryIndex, "start_time", normaliseManualTimeInput(e.target.value))}
+                              onBlur={(e) => applyManualEntryTime(dayIndex, entryIndex, "start_time", e.target.value)}
                               className="mt-1 h-10 text-sm"
                               data-testid={"mobile-start-" + dayIndex + "-" + entryIndex}
                             />
                             <div className="mt-1 grid grid-cols-3 gap-1">
                               <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => adjustEntryTime(dayIndex, entryIndex, "start_time", -TIME_ROUNDING_MINUTES)} data-testid={"mobile-start-minus-" + dayIndex + "-" + entryIndex}>-15</Button>
-                              <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => updateEntry(dayIndex, entryIndex, "start_time", getCurrentTimeString())} data-testid={"mobile-start-now-round-" + dayIndex + "-" + entryIndex}>Now</Button>
+                              <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => setEntryRoundedNow(dayIndex, entryIndex, "start_time")} data-testid={"mobile-start-now-round-" + dayIndex + "-" + entryIndex}>Now</Button>
                               <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => adjustEntryTime(dayIndex, entryIndex, "start_time", TIME_ROUNDING_MINUTES)} data-testid={"mobile-start-plus-" + dayIndex + "-" + entryIndex}>+15</Button>
                             </div>
                           </div>
@@ -872,36 +960,44 @@ const handleSubmit = async (e) => {
                             <Input
                               type="text"
                               inputMode="numeric"
-                              placeholder={getCurrentTimeString()}
+                              placeholder={defaults?.finish_time || DEFAULT_MOBILE_TIME_DEFAULTS.finish_time}
                               value={entry.finish_time || ""}
                               disabled={isLeaveType(entry.type)}
-                              onFocus={() => {
-                                if (!entry.finish_time) updateEntry(dayIndex, entryIndex, "finish_time", getCurrentTimeString());
+                              onFocus={(e) => {
+                                e.target.select();
+                                if (!entry.finish_time) setEntryDefaultTime(dayIndex, entryIndex, "finish_time");
                               }}
                               onChange={(e) => updateEntry(dayIndex, entryIndex, "finish_time", e.target.value)}
-                              onBlur={(e) => updateEntry(dayIndex, entryIndex, "finish_time", normaliseManualTimeInput(e.target.value))}
+                              onBlur={(e) => applyManualEntryTime(dayIndex, entryIndex, "finish_time", e.target.value)}
                               className="mt-1 h-10 text-sm"
                               data-testid={"mobile-finish-" + dayIndex + "-" + entryIndex}
                             />
                             <div className="mt-1 grid grid-cols-3 gap-1">
                               <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => adjustEntryTime(dayIndex, entryIndex, "finish_time", -TIME_ROUNDING_MINUTES)} data-testid={"mobile-finish-minus-" + dayIndex + "-" + entryIndex}>-15</Button>
-                              <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => updateEntry(dayIndex, entryIndex, "finish_time", getCurrentTimeString())} data-testid={"mobile-finish-now-round-" + dayIndex + "-" + entryIndex}>Now</Button>
+                              <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => setEntryRoundedNow(dayIndex, entryIndex, "finish_time")} data-testid={"mobile-finish-now-round-" + dayIndex + "-" + entryIndex}>Now</Button>
                               <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => adjustEntryTime(dayIndex, entryIndex, "finish_time", TIME_ROUNDING_MINUTES)} data-testid={"mobile-finish-plus-" + dayIndex + "-" + entryIndex}>+15</Button>
                             </div>
                           </div>
                         </div>
 
                         <div>
-                          <Label className="text-[11px]">Lunch minutes</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            value={entry.lunch_duration || ""}
+                          <Label className="text-[11px]">Lunch</Label>
+                          <Select
+                            value={entry.lunch_duration || defaults?.lunch_duration || DEFAULT_MOBILE_TIME_DEFAULTS.lunch_duration}
                             disabled={isLeaveType(entry.type)}
-                            onChange={(e) => updateEntry(dayIndex, entryIndex, "lunch_duration", e.target.value)}
-                            className="mt-1 h-10 text-sm"
-                            data-testid={"mobile-lunch-" + dayIndex + "-" + entryIndex}
-                          />
+                            onValueChange={(v) => {
+                              updateEntry(dayIndex, entryIndex, "lunch_duration", v);
+                              saveMobileTimeDefaults({ lunch_duration: v });
+                            }}
+                          >
+                            <SelectTrigger className="mt-1 h-10 w-full text-sm" data-testid={"mobile-lunch-" + dayIndex + "-" + entryIndex}>
+                              <SelectValue placeholder="Select lunch" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="30">30 minutes</SelectItem>
+                              <SelectItem value="60">60 minutes</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
 
                         <div>
@@ -976,11 +1072,11 @@ const handleSubmit = async (e) => {
                         </div>
                       </div>
 
-                      <div className="mt-3 flex items-center justify-between gap-2">
+                      <div className="mt-3 grid grid-cols-3 gap-1">
                         <Button
                           type="button"
                           variant="outline"
-                          className="px-2 py-1 text-[11px]"
+                          className="w-full px-1 py-1 text-[10px]"
                           disabled={isLeaveType(entry.type)}
                           onClick={() => startEntryNow(dayIndex, entryIndex)}
                           data-testid={"mobile-start-now-" + dayIndex + "-" + entryIndex}
@@ -990,7 +1086,7 @@ const handleSubmit = async (e) => {
                         <Button
                           type="button"
                           variant="outline"
-                          className="px-2 py-1 text-[11px]"
+                          className="w-full px-1 py-1 text-[10px]"
                           disabled={isLeaveType(entry.type)}
                           onClick={() => finishEntryNow(dayIndex, entryIndex)}
                           data-testid={"mobile-finish-now-" + dayIndex + "-" + entryIndex}
@@ -1000,7 +1096,7 @@ const handleSubmit = async (e) => {
                         <Button
                           type="button"
                           variant="ghost"
-                          className="px-2 py-1 text-[11px] text-red-600"
+                          className="w-full px-1 py-1 text-[10px] text-red-600"
                           onClick={() => removeEntry(dayIndex, entryIndex)}
                           data-testid={"mobile-clear-" + dayIndex + "-" + entryIndex}
                         >

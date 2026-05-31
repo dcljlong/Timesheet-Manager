@@ -2676,3 +2676,36 @@ body {
     min-width: 980px !important;
   }
 }
+
+/* TIMESHEET MANAGER / MOBILE TIMESHEET CARD CONTAINMENT V1.1
+   Contains the new stacked mobile Timesheet card layout to device width.
+   Prevents card controls, selects, and action rows from widening the full page.
+*/
+@media (max-width: 1023px) {
+  [data-testid="timesheet-mobile-grid"],
+  [data-testid="timesheet-mobile-grid"] *,
+  [data-testid^="mobile-day-card-"],
+  [data-testid^="mobile-entry-"] {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] {
+    width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
+  }
+
+  [data-testid^="mobile-day-card-"],
+  [data-testid^="mobile-entry-"] {
+    width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
+  }
+
+  [data-testid="timesheet-form"] input,
+  [data-testid="timesheet-form"] textarea,
+  [data-testid="timesheet-form"] button {
+    max-width: 100% !important;
+  }
+}
