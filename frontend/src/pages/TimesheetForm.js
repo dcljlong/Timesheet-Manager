@@ -32,7 +32,7 @@ const getFreshStartSessionKey = (stamp) =>
 
 const hasConsumedFreshStart = (stamp) => {
   try {
-    return window.sessionStorage.getItem(getFreshStartSessionKey(stamp)) === "1";
+    return window.localStorage.getItem(getFreshStartSessionKey(stamp)) === "1";
   } catch (e) {
     return false;
   }
@@ -40,7 +40,7 @@ const hasConsumedFreshStart = (stamp) => {
 
 const markFreshStartConsumed = (stamp) => {
   try {
-    window.sessionStorage.setItem(getFreshStartSessionKey(stamp), "1");
+    window.localStorage.setItem(getFreshStartSessionKey(stamp), "1");
   } catch (e) {
     // Ignore storage failures; draft save still works through localStorage where available.
   }
@@ -123,6 +123,7 @@ export default function TimesheetForm() {
   const addEntryLockRef = useRef({});
   const draftRef = useRef(null);
   const draftLoadedRef = useRef(false);
+  const suppressNextDraftSaveRef = useRef(false);
   const hasLoadedDraftRef = useRef(false);
 
   const [loading, setLoading] = useState(false);
@@ -377,6 +378,30 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
     return (hours * 60) + minutes;
   };
 
+  const formatTimeFor12HourDisplay = (value) => {
+    const minutes = parseManualTimeToMinutes(value);
+    if (minutes === null) return "";
+
+    const normalised = ((minutes % (24 * 60)) + (24 * 60)) % (24 * 60);
+    const hours24 = Math.floor(normalised / 60);
+    const mins = normalised % 60;
+    const suffix = hours24 >= 12 ? "PM" : "AM";
+    const hours12 = hours24 % 12 || 12;
+
+    return String(hours12) + ":" + String(mins).padStart(2, "0") + " " + suffix;
+  };
+
+  const formatTimeForMobileInput = (value) => {
+    const rawValue = String(value || "");
+    if (!rawValue) return "";
+    if (!isClockTimeValue(rawValue)) return rawValue;
+    return formatTimeFor12HourDisplay(rawValue);
+  };
+
+  const getMobileDefaultTimeLabel = (field) => {
+    return formatTimeFor12HourDisplay(defaults?.[field] || DEFAULT_MOBILE_TIME_DEFAULTS[field] || "");
+  };
+
   const roundMinutesToStep = (minutes) => {
     return Math.round(minutes / TIME_ROUNDING_MINUTES) * TIME_ROUNDING_MINUTES;
   };
@@ -536,6 +561,7 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
 
     if (raw) {
       const draft = JSON.parse(raw);
+      suppressNextDraftSaveRef.current = true;
 
       setEmployeeName(draft.employee_name || "");
       setPeriodType(draft.period_type || "weekly");
@@ -563,6 +589,7 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
 
       const res = await axios.get(`${API}/timesheets/${id}`, { withCredentials: true });
       const ts = res.data || {};
+      suppressNextDraftSaveRef.current = true;
 
       setEmployeeName(ts.employee_name || user?.name || "");
       setPeriodType(ts.period_type || "weekly");
@@ -768,6 +795,10 @@ const handleSubmit = async (e) => {
   }, []);
   useEffect(() => {
     if (!draftLoadedRef.current) return;
+    if (suppressNextDraftSaveRef.current) {
+      suppressNextDraftSaveRef.current = false;
+      return;
+    }
 
     const draft = {
       employee_name: employeeName,
@@ -936,47 +967,63 @@ const handleSubmit = async (e) => {
                             <Label className="text-[11px]">Start</Label>
                             <Input
                               type="text"
-                              inputMode="numeric"
-                              placeholder={defaults?.start_time || DEFAULT_MOBILE_TIME_DEFAULTS.start_time}
-                              value={entry.start_time || ""}
+                              inputMode="text"
+                              placeholder={getMobileDefaultTimeLabel("start_time")}
+                              value={formatTimeForMobileInput(entry.start_time)}
                               disabled={isLeaveType(entry.type)}
                               onFocus={(e) => {
-                                e.target.select();
-                                if (!entry.start_time) setEntryDefaultTime(dayIndex, entryIndex, "start_time");
+                                e.currentTarget.select();
+                              }}
+                              onClick={(e) => {
+                                e.currentTarget.select();
                               }}
                               onChange={(e) => updateEntry(dayIndex, entryIndex, "start_time", e.target.value)}
                               onBlur={(e) => applyManualEntryTime(dayIndex, entryIndex, "start_time", e.target.value)}
                               className="mt-1 h-10 text-sm"
                               data-testid={"mobile-start-" + dayIndex + "-" + entryIndex}
                             />
-                            <div className="mt-1 grid grid-cols-3 gap-1">
-                              <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => adjustEntryTime(dayIndex, entryIndex, "start_time", -TIME_ROUNDING_MINUTES)} data-testid={"mobile-start-minus-" + dayIndex + "-" + entryIndex}>-15</Button>
+                            <div className="mt-1 grid grid-cols-2 gap-1">
+                              <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => setEntryDefaultTime(dayIndex, entryIndex, "start_time")} data-testid={"mobile-start-use-default-" + dayIndex + "-" + entryIndex}>Use {getMobileDefaultTimeLabel("start_time")}</Button>
                               <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => setEntryRoundedNow(dayIndex, entryIndex, "start_time")} data-testid={"mobile-start-now-round-" + dayIndex + "-" + entryIndex}>Now</Button>
+                            </div>
+                            <div className="mt-1 grid grid-cols-2 gap-1">
+                              <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => adjustEntryTime(dayIndex, entryIndex, "start_time", -TIME_ROUNDING_MINUTES)} data-testid={"mobile-start-minus-" + dayIndex + "-" + entryIndex}>-15</Button>
                               <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => adjustEntryTime(dayIndex, entryIndex, "start_time", TIME_ROUNDING_MINUTES)} data-testid={"mobile-start-plus-" + dayIndex + "-" + entryIndex}>+15</Button>
                             </div>
+                            <p className="mt-1 text-[11px] text-gray-500" data-testid={"mobile-start-display-" + dayIndex + "-" + entryIndex}>
+                              {entry.start_time ? "Showing " + formatTimeFor12HourDisplay(entry.start_time) : "Type a time or tap Use default."}
+                            </p>
                           </div>
                           <div>
                             <Label className="text-[11px]">Finish</Label>
                             <Input
                               type="text"
-                              inputMode="numeric"
-                              placeholder={defaults?.finish_time || DEFAULT_MOBILE_TIME_DEFAULTS.finish_time}
-                              value={entry.finish_time || ""}
+                              inputMode="text"
+                              placeholder={getMobileDefaultTimeLabel("finish_time")}
+                              value={formatTimeForMobileInput(entry.finish_time)}
                               disabled={isLeaveType(entry.type)}
                               onFocus={(e) => {
-                                e.target.select();
-                                if (!entry.finish_time) setEntryDefaultTime(dayIndex, entryIndex, "finish_time");
+                                e.currentTarget.select();
+                              }}
+                              onClick={(e) => {
+                                e.currentTarget.select();
                               }}
                               onChange={(e) => updateEntry(dayIndex, entryIndex, "finish_time", e.target.value)}
                               onBlur={(e) => applyManualEntryTime(dayIndex, entryIndex, "finish_time", e.target.value)}
                               className="mt-1 h-10 text-sm"
                               data-testid={"mobile-finish-" + dayIndex + "-" + entryIndex}
                             />
-                            <div className="mt-1 grid grid-cols-3 gap-1">
-                              <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => adjustEntryTime(dayIndex, entryIndex, "finish_time", -TIME_ROUNDING_MINUTES)} data-testid={"mobile-finish-minus-" + dayIndex + "-" + entryIndex}>-15</Button>
+                            <div className="mt-1 grid grid-cols-2 gap-1">
+                              <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => setEntryDefaultTime(dayIndex, entryIndex, "finish_time")} data-testid={"mobile-finish-use-default-" + dayIndex + "-" + entryIndex}>Use {getMobileDefaultTimeLabel("finish_time")}</Button>
                               <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => setEntryRoundedNow(dayIndex, entryIndex, "finish_time")} data-testid={"mobile-finish-now-round-" + dayIndex + "-" + entryIndex}>Now</Button>
+                            </div>
+                            <div className="mt-1 grid grid-cols-2 gap-1">
+                              <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => adjustEntryTime(dayIndex, entryIndex, "finish_time", -TIME_ROUNDING_MINUTES)} data-testid={"mobile-finish-minus-" + dayIndex + "-" + entryIndex}>-15</Button>
                               <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => adjustEntryTime(dayIndex, entryIndex, "finish_time", TIME_ROUNDING_MINUTES)} data-testid={"mobile-finish-plus-" + dayIndex + "-" + entryIndex}>+15</Button>
                             </div>
+                            <p className="mt-1 text-[11px] text-gray-500" data-testid={"mobile-finish-display-" + dayIndex + "-" + entryIndex}>
+                              {entry.finish_time ? "Showing " + formatTimeFor12HourDisplay(entry.finish_time) : "Type a time or tap Use default."}
+                            </p>
                           </div>
                         </div>
 
