@@ -19,6 +19,7 @@ const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
 const TIMESHEET_DRAFT_KEY = "timesheet_form_draft_v1";
 const DRAFT_DEBUG_KEY = "timesheet_form_draft_v1";
 const REFERENCE_LIST_REFRESH_MS = 60000;
+const TIME_ROUNDING_MINUTES = 15;
 
 const getDraftKey = (isEditing, id) =>
   isEditing && id ? `${TIMESHEET_DRAFT_KEY}_edit_${id}` : TIMESHEET_DRAFT_KEY;
@@ -205,8 +206,8 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
     }
 
     if (!isLeaveType(entry.type)) {
-      const hasStart = !!entry.start_time;
-      const hasFinish = !!entry.finish_time;
+      const hasStart = isClockTimeValue(entry.start_time);
+      const hasFinish = isClockTimeValue(entry.finish_time);
 
       if (hasStart && hasFinish) {
         const start = new Date(`1970-01-01T${entry.start_time}`);
@@ -285,9 +286,77 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
     updateEntry(dayIndex, entryIndex, "finish_time", getCurrentTimeString());
   };
 
+  const formatMinutesAsTime = (totalMinutes) => {
+    const minutesInDay = 24 * 60;
+    const normalised = ((totalMinutes % minutesInDay) + minutesInDay) % minutesInDay;
+    const hours = Math.floor(normalised / 60);
+    const minutes = normalised % 60;
+    return String(hours).padStart(2, "0") + ":" + String(minutes).padStart(2, "0");
+  };
+
+  const isClockTimeValue = (value) => {
+    return /^\d{2}:\d{2}$/.test(String(value || ""));
+  };
+
+  const parseManualTimeToMinutes = (value) => {
+    const raw = String(value || "").trim().toLowerCase();
+    if (!raw) return null;
+
+    const isPm = raw.includes("p");
+    const isAm = raw.includes("a");
+    const cleaned = raw.replace(/[^0-9:.]/g, "").replace(".", ":");
+
+    let hours;
+    let minutes;
+
+    if (cleaned.includes(":")) {
+      const parts = cleaned.split(":");
+      hours = parseInt(parts[0], 10);
+      minutes = parseInt(parts[1] || "0", 10);
+    } else {
+      const digits = cleaned.replace(/\D/g, "");
+      if (!digits) return null;
+
+      if (digits.length <= 2) {
+        hours = parseInt(digits, 10);
+        minutes = 0;
+      } else {
+        hours = parseInt(digits.slice(0, -2), 10);
+        minutes = parseInt(digits.slice(-2), 10);
+      }
+    }
+
+    if (Number.isNaN(hours) || Number.isNaN(minutes) || minutes < 0 || minutes > 59) return null;
+
+    if (isPm && hours < 12) hours += 12;
+    if (isAm && hours === 12) hours = 0;
+    if (hours < 0 || hours > 23) return null;
+
+    return (hours * 60) + minutes;
+  };
+
+  const roundMinutesToStep = (minutes) => {
+    return Math.round(minutes / TIME_ROUNDING_MINUTES) * TIME_ROUNDING_MINUTES;
+  };
+
   const getCurrentTimeString = () => {
     const now = new Date();
-    return now.toTimeString().slice(0, 5);
+    const minutes = (now.getHours() * 60) + now.getMinutes();
+    return formatMinutesAsTime(roundMinutesToStep(minutes));
+  };
+
+  const normaliseManualTimeInput = (value) => {
+    const minutes = parseManualTimeToMinutes(value);
+    if (minutes === null) return "";
+    return formatMinutesAsTime(roundMinutesToStep(minutes));
+  };
+
+  const adjustEntryTime = (dayIndex, entryIndex, field, deltaMinutes) => {
+    const current = days[dayIndex]?.entries?.[entryIndex]?.[field];
+    const currentMinutes = parseManualTimeToMinutes(current);
+    const fallbackMinutes = parseManualTimeToMinutes(getCurrentTimeString()) || 0;
+    const nextMinutes = (currentMinutes === null ? fallbackMinutes : currentMinutes) + deltaMinutes;
+    updateEntry(dayIndex, entryIndex, field, formatMinutesAsTime(nextMinutes));
   };
 
   const openTimePicker = (testId) => {
@@ -723,8 +792,245 @@ const handleSubmit = async (e) => {
             </div>
           </div>
 
+          {/* Mobile Timesheet Day Cards */}
+          <div className="lg:hidden space-y-4 mb-6" data-testid="timesheet-mobile-grid">
+            {days.map((day, dayIndex) => (
+              <div key={day.day || dayIndex} className="card p-3" data-testid={"mobile-day-card-" + dayIndex}>
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div className="min-w-0">
+                    <h2 className="text-sm font-semibold text-gray-900">{day.day}</h2>
+                    <p className="text-[11px] text-gray-500">Day total: {getDayTotal(dayIndex).toFixed(2)} hrs</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="shrink-0 px-2 py-1 text-[11px]"
+                    onClick={() => addEntry(dayIndex)}
+                    data-testid={"mobile-add-line-" + dayIndex}
+                  >
+                    Add Line
+                  </Button>
+                </div>
+
+                <div className="space-y-3">
+                  {day.entries.map((entry, entryIndex) => (
+                    <div
+                      key={dayIndex + "-" + entryIndex}
+                      className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm"
+                      data-testid={"mobile-entry-" + dayIndex + "-" + entryIndex}
+                    >
+                      <div className="flex items-center justify-between gap-3 mb-3">
+                        <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                          Line {entryIndex + 1}
+                        </div>
+                        <div className="text-sm font-bold text-gray-900">
+                          {(parseFloat(entry.total_hours) || 0).toFixed(2)} hrs
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-3">
+                        <div>
+                          <Label className="text-[11px]">Type</Label>
+                          <select
+                            value={entry.type || "work"}
+                            onChange={(e) => updateEntry(dayIndex, entryIndex, "type", e.target.value)}
+                            className="mt-1 h-10 w-full rounded-md border border-gray-300 bg-white px-2 text-sm"
+                            data-testid={"mobile-type-" + dayIndex + "-" + entryIndex}
+                          >
+                            <option value="work">Work</option>
+                            <option value="public_holiday">Public Holiday</option>
+                            <option value="annual_leave">Annual Leave</option>
+                            <option value="sick">Sick</option>
+                          </select>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-[11px]">Start</Label>
+                            <Input
+                              type="text"
+                              inputMode="numeric"
+                              placeholder={getCurrentTimeString()}
+                              value={entry.start_time || ""}
+                              disabled={isLeaveType(entry.type)}
+                              onFocus={() => {
+                                if (!entry.start_time) updateEntry(dayIndex, entryIndex, "start_time", getCurrentTimeString());
+                              }}
+                              onChange={(e) => updateEntry(dayIndex, entryIndex, "start_time", e.target.value)}
+                              onBlur={(e) => updateEntry(dayIndex, entryIndex, "start_time", normaliseManualTimeInput(e.target.value))}
+                              className="mt-1 h-10 text-sm"
+                              data-testid={"mobile-start-" + dayIndex + "-" + entryIndex}
+                            />
+                            <div className="mt-1 grid grid-cols-3 gap-1">
+                              <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => adjustEntryTime(dayIndex, entryIndex, "start_time", -TIME_ROUNDING_MINUTES)} data-testid={"mobile-start-minus-" + dayIndex + "-" + entryIndex}>-15</Button>
+                              <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => updateEntry(dayIndex, entryIndex, "start_time", getCurrentTimeString())} data-testid={"mobile-start-now-round-" + dayIndex + "-" + entryIndex}>Now</Button>
+                              <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => adjustEntryTime(dayIndex, entryIndex, "start_time", TIME_ROUNDING_MINUTES)} data-testid={"mobile-start-plus-" + dayIndex + "-" + entryIndex}>+15</Button>
+                            </div>
+                          </div>
+                          <div>
+                            <Label className="text-[11px]">Finish</Label>
+                            <Input
+                              type="text"
+                              inputMode="numeric"
+                              placeholder={getCurrentTimeString()}
+                              value={entry.finish_time || ""}
+                              disabled={isLeaveType(entry.type)}
+                              onFocus={() => {
+                                if (!entry.finish_time) updateEntry(dayIndex, entryIndex, "finish_time", getCurrentTimeString());
+                              }}
+                              onChange={(e) => updateEntry(dayIndex, entryIndex, "finish_time", e.target.value)}
+                              onBlur={(e) => updateEntry(dayIndex, entryIndex, "finish_time", normaliseManualTimeInput(e.target.value))}
+                              className="mt-1 h-10 text-sm"
+                              data-testid={"mobile-finish-" + dayIndex + "-" + entryIndex}
+                            />
+                            <div className="mt-1 grid grid-cols-3 gap-1">
+                              <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => adjustEntryTime(dayIndex, entryIndex, "finish_time", -TIME_ROUNDING_MINUTES)} data-testid={"mobile-finish-minus-" + dayIndex + "-" + entryIndex}>-15</Button>
+                              <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => updateEntry(dayIndex, entryIndex, "finish_time", getCurrentTimeString())} data-testid={"mobile-finish-now-round-" + dayIndex + "-" + entryIndex}>Now</Button>
+                              <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => adjustEntryTime(dayIndex, entryIndex, "finish_time", TIME_ROUNDING_MINUTES)} data-testid={"mobile-finish-plus-" + dayIndex + "-" + entryIndex}>+15</Button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <Label className="text-[11px]">Lunch minutes</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={entry.lunch_duration || ""}
+                            disabled={isLeaveType(entry.type)}
+                            onChange={(e) => updateEntry(dayIndex, entryIndex, "lunch_duration", e.target.value)}
+                            className="mt-1 h-10 text-sm"
+                            data-testid={"mobile-lunch-" + dayIndex + "-" + entryIndex}
+                          />
+                        </div>
+
+                        <div>
+                          <Label className="text-[11px]">Job</Label>
+                          <Select
+                            value={entry.job_number || ""}
+                            disabled={isLeaveType(entry.type)}
+                            onValueChange={(v) => updateEntry(dayIndex, entryIndex, "job_number", v)}
+                          >
+                            <SelectTrigger className="mt-1 h-10 w-full text-sm">
+                              <SelectValue placeholder="Select Job" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {jobNumbers.map((job) => (
+                                <SelectItem key={job.id} value={job.job_number}>
+                                  {job.job_number}{job.description ? " - " + job.description : ""}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <Label className="text-[11px]">Task</Label>
+                          <Select
+                            value={entry.task_code || ""}
+                            disabled={isLeaveType(entry.type)}
+                            onValueChange={(v) => updateEntry(dayIndex, entryIndex, "task_code", v)}
+                          >
+                            <SelectTrigger className="mt-1 h-10 w-full text-sm">
+                              <SelectValue placeholder="Select Task" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {taskCodes.map((tc) => (
+                                <SelectItem key={tc.id} value={tc.code}>
+                                  {tc.code} - {tc.description}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <Label className="text-[11px]">Project Manager</Label>
+                          <Select
+                            value={entry.project_manager_id || ""}
+                            disabled={isLeaveType(entry.type)}
+                            onValueChange={(v) => updateEntry(dayIndex, entryIndex, "project_manager_id", v)}
+                          >
+                            <SelectTrigger className="mt-1 h-10 w-full text-sm">
+                              <SelectValue placeholder="Select PM" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {projectManagers.map((pm) => (
+                                <SelectItem key={pm.id} value={pm.id}>
+                                  {pm.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <Label className="text-[11px]">Description</Label>
+                          <Textarea
+                            value={entry.description || entry.other || ""}
+                            onChange={(e) => updateEntry(dayIndex, entryIndex, "description", e.target.value)}
+                            className="mt-1 min-h-[72px] text-sm"
+                            rows={2}
+                            data-testid={"mobile-description-" + dayIndex + "-" + entryIndex}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex items-center justify-between gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="px-2 py-1 text-[11px]"
+                          disabled={isLeaveType(entry.type)}
+                          onClick={() => startEntryNow(dayIndex, entryIndex)}
+                          data-testid={"mobile-start-now-" + dayIndex + "-" + entryIndex}
+                        >
+                          Start now
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="px-2 py-1 text-[11px]"
+                          disabled={isLeaveType(entry.type)}
+                          onClick={() => finishEntryNow(dayIndex, entryIndex)}
+                          data-testid={"mobile-finish-now-" + dayIndex + "-" + entryIndex}
+                        >
+                          Finish now
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="px-2 py-1 text-[11px] text-red-600"
+                          onClick={() => removeEntry(dayIndex, entryIndex)}
+                          data-testid={"mobile-clear-" + dayIndex + "-" + entryIndex}
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            <div className="card p-3 bg-gray-900 text-white" data-testid="timesheet-mobile-totals">
+              <div className="text-sm font-bold mb-2">Totals</div>
+              <div className="grid grid-cols-2 gap-2 text-[12px]">
+                <div>Work</div>
+                <div className="text-right font-semibold">{getTypeTotalHours("work").toFixed(2)} hrs</div>
+                <div>Public Holiday</div>
+                <div className="text-right font-semibold">{getTypeTotalHours("public_holiday").toFixed(2)} hrs</div>
+                <div>Annual Leave</div>
+                <div className="text-right font-semibold">{getTypeTotalHours("annual_leave").toFixed(2)} hrs</div>
+                <div>Sick</div>
+                <div className="text-right font-semibold">{getTypeTotalHours("sick").toFixed(2)} hrs</div>
+                <div className="border-t border-white/20 pt-2 font-bold">TOTAL HOURS</div>
+                <div className="border-t border-white/20 pt-2 text-right text-base font-bold">{getTotalHours().toFixed(2)} hrs</div>
+              </div>
+            </div>
+          </div>
           {/* Timesheet Grid */}
-          <div className="card mb-6 overflow-x-auto" data-testid="timesheet-grid">
+          <div className="hidden lg:block card mb-6 overflow-x-auto" data-testid="timesheet-grid">
             <table className="w-full text-[11px]">
               <thead>
   <tr className="bg-gray-100 border-b">
