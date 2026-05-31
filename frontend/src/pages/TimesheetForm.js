@@ -18,6 +18,7 @@ import SignaturePad from "../components/SignaturePad";
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const TIMESHEET_DRAFT_KEY = "timesheet_form_draft_v1";
 const DRAFT_DEBUG_KEY = "timesheet_form_draft_v1";
+const REFERENCE_LIST_REFRESH_MS = 60000;
 
 const getDraftKey = (isEditing, id) =>
   isEditing && id ? `${TIMESHEET_DRAFT_KEY}_edit_${id}` : TIMESHEET_DRAFT_KEY;
@@ -553,9 +554,13 @@ const handleSubmit = async (e) => {
 };
 
   useEffect(() => {
-    const loadDropdowns = async () => {
+    let isMounted = true;
+
+    const loadDropdowns = async ({ showSpinner = false } = {}) => {
       try {
-        setLoading(true);
+        if (showSpinner) {
+          setLoading(true);
+        }
 
         const [codesRes, pmRes, jobsRes] = await Promise.all([
           axios.get(`${API}/task-codes`),
@@ -563,17 +568,44 @@ const handleSubmit = async (e) => {
           axios.get(`${API}/job-numbers`)
         ]);
 
+        if (!isMounted) return;
+
         setTaskCodes(codesRes.data || []);
         setJobNumbers((jobsRes.data || []).filter((job) => job.active !== false));
         setPMs(pmRes.data || []);
       } catch (err) {
-        console.error("Dropdown load failed", err);
+        console.error("Reference list refresh failed", err);
       } finally {
-        setLoading(false);
+        if (showSpinner && isMounted) {
+          setLoading(false);
+        }
       }
     };
 
-    loadDropdowns();
+    const refreshReferenceLists = () => loadDropdowns({ showSpinner: false });
+
+    const handleReferenceListFocus = () => {
+      refreshReferenceLists();
+    };
+
+    const handleReferenceListVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshReferenceLists();
+      }
+    };
+
+    loadDropdowns({ showSpinner: true });
+
+    const referenceListInterval = window.setInterval(refreshReferenceLists, REFERENCE_LIST_REFRESH_MS);
+    window.addEventListener("focus", handleReferenceListFocus);
+    document.addEventListener("visibilitychange", handleReferenceListVisibilityChange);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(referenceListInterval);
+      window.removeEventListener("focus", handleReferenceListFocus);
+      document.removeEventListener("visibilitychange", handleReferenceListVisibilityChange);
+    };
   }, []);
   useEffect(() => {
     
