@@ -84,6 +84,7 @@ export default function TimesheetForm() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [taskCodes, setTaskCodes] = useState([]);
+  const [jobNumbers, setJobNumbers] = useState([]);
   const [projectManagers, setPMs] = useState([]);
   const [defaults, setDefaults] = useState(null);
 
@@ -556,12 +557,14 @@ const handleSubmit = async (e) => {
       try {
         setLoading(true);
 
-        const [codesRes, pmRes] = await Promise.all([
+        const [codesRes, pmRes, jobsRes] = await Promise.all([
           axios.get(`${API}/task-codes`),
-          axios.get(`${API}/project-managers`)
+          axios.get(`${API}/project-managers`),
+          axios.get(`${API}/job-numbers`)
         ]);
 
         setTaskCodes(codesRes.data || []);
+        setJobNumbers((jobsRes.data || []).filter((job) => job.active !== false));
         setPMs(pmRes.data || []);
       } catch (err) {
         console.error("Dropdown load failed", err);
@@ -782,12 +785,22 @@ const handleSubmit = async (e) => {
 
           {/* JOB */}
           <td className="p-1">
-            <Input
-              value={entry.job_number}
+            <Select
+              value={entry.job_number || ""}
               disabled={isLeaveType(entry.type)}
-              onChange={(e) => updateEntry(dayIndex, entryIndex, "job_number", e.target.value)}
-              className="w-20 text-[11px]"
-            />
+              onValueChange={(v) => updateEntry(dayIndex, entryIndex, "job_number", v)}
+            >
+              <SelectTrigger className="w-24 text-[11px] px-1 py-0.5">
+                <SelectValue placeholder="Select Job" />
+              </SelectTrigger>
+              <SelectContent>
+                {jobNumbers.map((job) => (
+                  <SelectItem key={job.id} value={job.job_number}>
+                    {job.job_number}{job.description ? ` - ${job.description}` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </td>
 
                       {/* TASK */}

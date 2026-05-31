@@ -51,6 +51,7 @@ export default function Layout({ children }) {
       { path: "/pm", label: "PM Approvals", icon: ClipboardList },
       { path: "/admin/users", label: "Users", icon: Users },
       { path: "/admin/task-codes", label: "Task Codes", icon: Layers },
+      { path: "/admin/job-numbers", label: "Job Numbers", icon: Briefcase },
       { path: "/admin/pms", label: "Project Managers", icon: UserCog },
       { path: "/settings", label: "Settings", icon: Settings },
     ],

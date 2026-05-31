@@ -81,6 +81,16 @@ class ProjectManagerResponse(BaseModel):
     initials: str
     name: str
     email: Optional[str] = None
+class JobNumberCreate(BaseModel):
+    job_number: str
+    description: Optional[str] = ""
+    active: bool = True
+
+class JobNumberResponse(BaseModel):
+    id: str
+    job_number: str
+    description: str = ""
+    active: bool = True
 
 class TimeEntry(BaseModel):
     start_time: Optional[str] = None
@@ -442,6 +452,50 @@ async def delete_project_manager(pm_id: str, request: Request):
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Project Manager not found")
     return {"message": "Project Manager deleted"}
+
+# ==================== JOB NUMBERS ENDPOINTS ====================
+
+@api_router.get("/job-numbers", response_model=List[JobNumberResponse])
+async def get_job_numbers():
+    jobs = await db.job_numbers.find({}, {"_id": 1, "job_number": 1, "description": 1, "active": 1}).sort("job_number", 1).to_list(1000)
+    return [{"id": str(j["_id"]), "job_number": j["job_number"], "description": j.get("description", ""), "active": j.get("active", True)} for j in jobs]
+
+@api_router.post("/job-numbers", response_model=JobNumberResponse)
+async def create_job_number(job: JobNumberCreate, request: Request):
+    user = await get_current_user(request)
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    job_number = (job.job_number or "").strip()
+    if not job_number:
+        raise HTTPException(status_code=400, detail="Job number is required")
+
+    existing = await db.job_numbers.find_one({"job_number": job_number})
+    if existing:
+        raise HTTPException(status_code=400, detail="Job number already exists")
+
+    description = (job.description or "").strip()
+    active = bool(job.active)
+    doc = {
+        "job_number": job_number,
+        "description": description,
+        "active": active,
+        "created_by": user["id"],
+        "created_at": datetime.now(timezone.utc)
+    }
+    result = await db.job_numbers.insert_one(doc)
+    return {"id": str(result.inserted_id), "job_number": job_number, "description": description, "active": active}
+
+@api_router.delete("/job-numbers/{job_id}")
+async def delete_job_number(job_id: str, request: Request):
+    user = await get_current_user(request)
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    result = await db.job_numbers.delete_one({"_id": ObjectId(job_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Job number not found")
+    return {"message": "Job number deleted"}
 
 LEAVE_ENTRY_TYPES = {"public_holiday", "annual_leave", "sick"}
 
@@ -2480,6 +2534,7 @@ async def startup_event():
     await db.users.create_index("email", unique=True)
     await db.task_codes.create_index("code", unique=True)
     await db.project_managers.create_index("initials", unique=True)
+    await db.job_numbers.create_index("job_number", unique=True)
     await db.login_attempts.create_index("identifier")
     await db.timesheets.create_index("user_id")
     await db.timesheets.create_index("status")

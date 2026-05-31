@@ -25,6 +25,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import TimesheetView from "./pages/TimesheetView";
 import SettingsPage from "./pages/SettingsPage";
 import ManageTaskCodes from "./pages/ManageTaskCodes";
+import ManageJobNumbers from "./pages/ManageJobNumbers";
 import ManagePMs from "./pages/ManagePMs";
 import ManageUsers from "./pages/ManageUsers";
 
@@ -267,6 +268,11 @@ function App() {
           <Route path="/admin/task-codes" element={
             <ProtectedRoute allowedRoles={["admin"]}>
               <ManageTaskCodes />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/job-numbers" element={
+            <ProtectedRoute allowedRoles={["admin"]}>
+              <ManageJobNumbers />
             </ProtectedRoute>
           } />
           <Route path="/admin/pms" element={

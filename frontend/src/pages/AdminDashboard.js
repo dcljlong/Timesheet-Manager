@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth, API } from "../App";
 import axios from "axios";
 import { Button } from "../components/ui/button";
-import { FileText, Users, Clock, CheckCircle, XCircle, Layers, UserCog, Download } from "lucide-react";
+import { FileText, Users, Clock, CheckCircle, XCircle, Layers, UserCog, Download, Briefcase } from "lucide-react";
 import { format } from "date-fns";
 import Layout from "../components/Layout";
 
@@ -264,7 +264,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
           <button
             onClick={() => navigate("/admin/users")}
             className="card p-4 flex items-center hover:bg-gray-50 transition-colors text-left"
@@ -290,6 +290,20 @@ export default function AdminDashboard() {
             <div className="ml-4">
               <p className="font-medium">Task Codes</p>
               <p className="text-sm text-gray-500">Manage analysis codes</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => navigate("/admin/job-numbers")}
+            className="card p-4 flex items-center hover:bg-gray-50 transition-colors text-left"
+            data-testid="manage-job-numbers-link"
+          >
+            <div className="p-3 bg-blue-100 rounded">
+              <Briefcase className="w-5 h-5 text-blue-700" />
+            </div>
+            <div className="ml-4">
+              <p className="font-medium">Job Numbers</p>
+              <p className="text-sm text-gray-500">Manage job/source list</p>
             </div>
           </button>
 
