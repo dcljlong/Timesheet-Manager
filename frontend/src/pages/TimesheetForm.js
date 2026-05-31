@@ -855,20 +855,7 @@ const handleSubmit = async (e) => {
                   type="button"
                   size="sm"
                   variant="ghost"
-                  onClick={() => {
-                    const resetEntry = {
-                      ...emptyEntry(),
-                      type: entry.type || "work",
-                      total_hours: isLeaveType(entry.type) ? getDefaultLeaveHours(day.day) : 0
-                    };
-
-                    setDays(prev => {
-                      const copy = [...prev];
-                      copy[dayIndex].entries[entryIndex] = resetEntry;
-                      saveDraftNow({ days: copy });
-                      return copy;
-                    });
-                  }}
+                  onClick={() => removeEntry(dayIndex, entryIndex)}
                 >
                   Clear
                 </Button>
