@@ -126,10 +126,11 @@ export default function ManageUsers() {
       return;
     }
 
-    const name = (targetUser?.name || "there").trim() || "there";
+    const fullName = (targetUser?.name || "there").trim() || "there";
+    const firstName = fullName === "there" ? "there" : fullName.split(/\s+/)[0];
     const subject = encodeURIComponent("Timesheet Manager access");
     const body = encodeURIComponent([
-      `Hi ${name},`,
+      `Hi ${firstName},`,
       "",
       "You have been added to Timesheet Manager.",
       "",
