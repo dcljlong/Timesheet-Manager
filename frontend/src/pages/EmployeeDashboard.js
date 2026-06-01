@@ -10,7 +10,42 @@ import { toast } from "sonner";
 export default function EmployeeDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const hasDraft = localStorage.getItem("timesheet_form_draft_v1");
+  const hasMeaningfulDraft = () => {
+    // TIMESHEET DASHBOARD MEANINGFUL DRAFT ONLY V1
+    try {
+      const raw = localStorage.getItem("timesheet_form_draft_v1");
+      if (!raw) return false;
+
+      const draft = JSON.parse(raw);
+      const hasWeekEnding = !!draft.week_ending;
+      const hasMessages = !!String(draft.messages || "").trim();
+      const hasNightsAway = (parseInt(draft.nights_away, 10) || 0) > 0;
+      const signatureBackup = localStorage.getItem("timesheet_form_draft_v1_signature_backup_v1");
+      const hasSignature = !!draft.employee_signature || !!signatureBackup;
+      const hasEntries = Array.isArray(draft.days) && draft.days.some((day) =>
+        Array.isArray(day?.entries) && day.entries.some((entry) => {
+          if (!entry) return false;
+          return [
+            entry.start_time,
+            entry.finish_time,
+            entry.job_number,
+            entry.task_code,
+            entry.project_manager_id,
+            entry.description,
+            entry.other
+          ].some((value) => value !== null && value !== undefined && String(value).trim() !== "") ||
+            (parseFloat(entry.total_hours) || 0) > 0 ||
+            ["public_holiday", "annual_leave", "sick", "unpaid_day_off"].includes(String(entry.type || "").trim().toLowerCase().replace(/[-\s]+/g, "_"));
+        })
+      );
+
+      return hasWeekEnding || hasMessages || hasNightsAway || hasSignature || hasEntries;
+    } catch {
+      return false;
+    }
+  };
+
+  const hasDraft = hasMeaningfulDraft();
   const [timesheets, setTimesheets] = useState([]);
   const [stats, setStats] = useState({ total: 0, approved: 0, pending: 0 });
   const [loading, setLoading] = useState(true);

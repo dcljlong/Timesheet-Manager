@@ -70,6 +70,32 @@ const getDraftKey = (isEditing, id) =>
 const getSignatureDraftKey = (isEditing, id) =>
   `${getDraftKey(isEditing, id)}${TIMESHEET_SIGNATURE_BACKUP_SUFFIX}`;
 
+const hasMeaningfulDraftData = (draft = {}) => {
+  // TIMESHEET MEANINGFUL DRAFT ONLY V1
+  const hasWeekEnding = !!draft.week_ending;
+  const hasMessages = !!String(draft.messages || "").trim();
+  const hasNightsAway = (parseInt(draft.nights_away, 10) || 0) > 0;
+  const hasSignature = !!draft.employee_signature;
+  const hasEntries = Array.isArray(draft.days) && draft.days.some((day) =>
+    Array.isArray(day?.entries) && day.entries.some((entry) => {
+      if (!entry) return false;
+      return [
+        entry.start_time,
+        entry.finish_time,
+        entry.job_number,
+        entry.task_code,
+        entry.project_manager_id,
+        entry.description,
+        entry.other
+      ].some((value) => value !== null && value !== undefined && String(value).trim() !== "") ||
+        (parseFloat(entry.total_hours) || 0) > 0 ||
+        ["public_holiday", "annual_leave", "sick", "unpaid_day_off"].includes(normaliseEntryType(entry.type));
+    })
+  );
+
+  return hasWeekEnding || hasMessages || hasNightsAway || hasSignature || hasEntries;
+};
+
 const emptyEntry = () => ({
   type: "work",
   start_time: "",
@@ -569,6 +595,13 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
       }
 
       draftRef.current = nextDraft;
+
+      if (!isEditing && !hasMeaningfulDraftData(nextDraft)) {
+        localStorage.removeItem(getDraftKey(isEditing, id));
+        localStorage.removeItem(getSignatureDraftKey(isEditing, id));
+        return;
+      }
+
       localStorage.setItem(getDraftKey(isEditing, id), JSON.stringify(draftForStorage));
     } catch (e) {
       console.error("Draft save failed", e);
@@ -648,6 +681,12 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
 
     if (raw) {
       const draft = JSON.parse(raw);
+      if (!hasMeaningfulDraftData({ ...draft, employee_signature: draft.employee_signature || signatureBackup || null })) {
+        localStorage.removeItem(draftKey);
+        localStorage.removeItem(getSignatureDraftKey(isEditing, id));
+        draftLoadedRef.current = true;
+        return;
+      }
       suppressNextDraftSaveRef.current = true;
 
       setEmployeeName(draft.employee_name || "");
