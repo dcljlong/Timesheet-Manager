@@ -637,6 +637,12 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
   }
 
   try {
+    // TIMESHEET EDIT LOAD SERVER FIRST V1
+    // Edit mode must load the real server timesheet first. A stale local edit draft can make Fix / Resubmit open blank.
+    if (isEditing && id) {
+      localStorage.removeItem(draftKey);
+      localStorage.removeItem(getSignatureDraftKey(isEditing, id));
+    } else {
     const raw = localStorage.getItem(draftKey);
     const signatureBackup = localStorage.getItem(getSignatureDraftKey(isEditing, id));
 
@@ -654,6 +660,7 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
 
       draftLoadedRef.current = true;
       return;
+    }
     }
   } catch (e) {
     console.error("Draft load failed", e);
@@ -682,11 +689,22 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
         return;
       }
 
-      setDays(normalizeDays(ts.days));
+      const serverDays = normalizeDays(ts.days);
+      setDays(serverDays);
       setMessages(ts.messages || "");
       setNightsAway(ts.nights_away || 0);
       setEmployeeSignature(ts.employee_signature || null);
       setPmEditReason("");
+
+      draftRef.current = {
+        employee_name: ts.employee_name || user?.name || "",
+        period_type: ts.period_type || "weekly",
+        week_ending: ts.week_ending || null,
+        days: serverDays,
+        messages: ts.messages || "",
+        nights_away: ts.nights_away || 0,
+        employee_signature: ts.employee_signature || null
+      };
 
     } catch (err) {
       console.error(err);
