@@ -970,7 +970,7 @@ const handleSubmit = async (e) => {
               <div key={day.day || dayIndex} className="card p-3 w-full max-w-full min-w-0 overflow-hidden" data-testid={"mobile-day-card-" + dayIndex}>
                                 <div className="mobile-day-header mb-3 space-y-2" data-testid={"mobile-day-header-" + dayIndex}>
                   <div className="min-w-0">
-                    <h2 className="text-base font-semibold text-gray-900">{day.day}</h2>
+                    <h2 className="mobile-day-title text-xl font-black tracking-tight text-gray-950">{day.day}</h2>
                     <p className="text-[12px] leading-snug text-gray-500">
                       Day total: <span className="font-semibold text-gray-800">{getDayTotal(dayIndex).toFixed(2)} hrs</span>
                     </p>
@@ -990,7 +990,11 @@ const handleSubmit = async (e) => {
                   {day.entries.map((entry, entryIndex) => (
                     <div
                       key={dayIndex + "-" + entryIndex}
-                      className="w-full max-w-full min-w-0 overflow-hidden rounded-lg border border-gray-200 bg-white p-3 shadow-sm"
+                      className={
+                        "mobile-entry-card mobile-entry-card-" +
+                        ((entryIndex % 4) + 1) +
+                        " w-full max-w-full min-w-0 overflow-hidden rounded-lg border p-3 shadow-sm"
+                      }
                       data-testid={"mobile-entry-" + dayIndex + "-" + entryIndex}
                     >
                       <div className="flex items-center justify-between gap-3 mb-3">
@@ -1043,9 +1047,7 @@ const handleSubmit = async (e) => {
                               <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => setEntryDefaultTime(dayIndex, entryIndex, "start_time")} data-testid={"mobile-start-use-default-" + dayIndex + "-" + entryIndex}>Use {getMobileDefaultTimeLabel("start_time")}</Button>
                               <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => setEntryRoundedNow(dayIndex, entryIndex, "start_time")} data-testid={"mobile-start-now-round-" + dayIndex + "-" + entryIndex}>Now</Button>
                             </div>
-                            <p className="mt-1 text-[11px] text-gray-500" data-testid={"mobile-start-display-" + dayIndex + "-" + entryIndex}>
-                              {entry.start_time ? "Showing " + formatTimeFor12HourDisplay(entry.start_time) : "Type a time or tap Use default."}
-                            </p>
+
                           </div>
                           <div>
                             <Label className="text-[11px]">Finish</Label>
@@ -1071,9 +1073,7 @@ const handleSubmit = async (e) => {
                               <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => setEntryDefaultTime(dayIndex, entryIndex, "finish_time")} data-testid={"mobile-finish-use-default-" + dayIndex + "-" + entryIndex}>Use {getMobileDefaultTimeLabel("finish_time")}</Button>
                               <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => setEntryRoundedNow(dayIndex, entryIndex, "finish_time")} data-testid={"mobile-finish-now-round-" + dayIndex + "-" + entryIndex}>Now</Button>
                             </div>
-                            <p className="mt-1 text-[11px] text-gray-500" data-testid={"mobile-finish-display-" + dayIndex + "-" + entryIndex}>
-                              {entry.finish_time ? "Showing " + formatTimeFor12HourDisplay(entry.finish_time) : "Type a time or tap Use default."}
-                            </p>
+
                           </div>
                         </div>
 

@@ -2935,3 +2935,44 @@ body {
     color: #f8fafc !important;
   }
 }
+
+/* TIMESHEET MANAGER / MOBILE DAY ENTRY CLARITY V1
+   Makes day labels clearer, removes redundant Showing helper text from JSX, and subtly colour-codes entry cards.
+*/
+@media (max-width: 1023px) {
+  [data-testid="timesheet-mobile-grid"] .mobile-day-title {
+    font-size: 1.35rem !important;
+    line-height: 1.15 !important;
+    letter-spacing: -0.02em !important;
+    color: #07111f !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-card {
+    border-width: 2px !important;
+    border-left-width: 0.45rem !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-card-1 {
+    background: #fffaf0 !important;
+    border-color: #f4c467 !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-card-2 {
+    background: #f0f7ff !important;
+    border-color: #7db5e8 !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-card-3 {
+    background: #f2fbf5 !important;
+    border-color: #82c995 !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-card-4 {
+    background: #fff5f7 !important;
+    border-color: #ee9aad !important;
+  }
+
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-day-title {
+    color: #f8fafc !important;
+  }
+}
