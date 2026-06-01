@@ -960,17 +960,19 @@ const handleSubmit = async (e) => {
           <div className="lg:hidden w-full max-w-full min-w-0 overflow-x-hidden space-y-4 mb-6" data-testid="timesheet-mobile-grid">
             {days.map((day, dayIndex) => (
               <div key={day.day || dayIndex} className="card p-3 w-full max-w-full min-w-0 overflow-hidden" data-testid={"mobile-day-card-" + dayIndex}>
-                <div className="flex items-center justify-between gap-3 mb-3">
+                                <div className="mobile-day-header mb-3 space-y-2" data-testid={"mobile-day-header-" + dayIndex}>
                   <div className="min-w-0">
-                    <h2 className="text-sm font-semibold text-gray-900">{day.day}</h2>
-                    <p className="text-[11px] text-gray-500">Day total: {getDayTotal(dayIndex).toFixed(2)} hrs</p>
+                    <h2 className="text-base font-semibold text-gray-900">{day.day}</h2>
+                    <p className="text-[12px] leading-snug text-gray-500">
+                      Day total: <span className="font-semibold text-gray-800">{getDayTotal(dayIndex).toFixed(2)} hrs</span>
+                    </p>
                   </div>
                   <Button
                     type="button"
                     variant="outline"
-                    className="shrink-0 px-2 py-1 text-[11px]"
+                    className="w-full px-2 py-2 text-[12px] font-semibold"
                     onClick={() => addEntry(dayIndex)}
-                    data-testid={"mobile-add-line-" + dayIndex}
+                    data-testid={"mobile-add-entry-" + dayIndex}
                   >
                     Add Line
                   </Button>
