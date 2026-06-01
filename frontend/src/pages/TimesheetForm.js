@@ -106,8 +106,9 @@ const hasMeaningfulDraftData = (draft = {}) => {
   return hasWeekEnding || hasMessages || hasNightsAway || hasSignature || hasEntries;
 };
 
-const emptyEntry = () => ({
-  type: "work",
+const emptyEntry = (type = "work") => ({
+  // TIMESHEET WEEKEND BLANK TYPE V1
+  type,
   start_time: "",
   lunch_duration: "30",
   finish_time: "",
@@ -357,7 +358,7 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
 
       const updated = prev.map((day, idx) =>
         idx === dayIndex
-          ? { ...day, entries: [...currentEntries, emptyEntry()] }
+          ? { ...day, entries: [...currentEntries, emptyEntry(["Saturday", "Sunday"].includes(currentDay.day) ? "" : "work")] }
           : day
       );
 
@@ -1149,11 +1150,12 @@ const handleSubmit = async (e) => {
                         <div>
                           <Label className="text-[11px]">Type</Label>
                           <select
-                            value={entry.type || "work"}
+                            value={entry.type || ""}
                             onChange={(e) => updateEntry(dayIndex, entryIndex, "type", e.target.value)}
                             className="mobile-entry-field mt-1 h-12 w-full rounded-md px-3 text-base font-bold"
                             data-testid={"mobile-type-" + dayIndex + "-" + entryIndex}
                           >
+                            <option value="" disabled>Select type</option>
                             <option value="work">Work</option>
                             <option value="unpaid_day_off">Unpaid day off</option>
                             <option value="public_holiday">Public Holiday</option>
@@ -1410,10 +1412,11 @@ const handleSubmit = async (e) => {
           {/* TYPE */}
           <td className="p-1">
             <select
-              value={entry.type || "work"}
+              value={entry.type || ""}
               onChange={(e) => updateEntry(dayIndex, entryIndex, "type", e.target.value)}
               className="w-28 text-[11px] border rounded px-1 py-0.5"
             >
+              <option value="" disabled>Select type</option>
               <option value="work">Work</option>
               <option value="unpaid_day_off">Unpaid day off</option>
               <option value="public_holiday">Public Holiday</option>
