@@ -453,6 +453,14 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
     if (nextValue) saveMobileTimeDefaults({ [field]: nextValue });
   };
 
+  const handleManualTimeKeyDown = (event, dayIndex, entryIndex, field) => {
+    if (event.key !== "Enter") return;
+
+    event.preventDefault();
+    applyManualEntryTime(dayIndex, entryIndex, field, event.currentTarget.value);
+    event.currentTarget.blur();
+  };
+
   const setEntryDefaultTime = (dayIndex, entryIndex, field) => {
     const nextValue = defaults?.[field] || DEFAULT_MOBILE_TIME_DEFAULTS[field] || getCurrentTimeString();
     updateEntry(dayIndex, entryIndex, field, nextValue);
@@ -986,7 +994,7 @@ const handleSubmit = async (e) => {
                       data-testid={"mobile-entry-" + dayIndex + "-" + entryIndex}
                     >
                       <div className="flex items-center justify-between gap-3 mb-3">
-                        <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                        <div className="text-[12px] font-black uppercase tracking-wide text-gray-900">
                           Line {entryIndex + 1}
                         </div>
                         <div className="text-sm font-bold text-gray-900">
@@ -1027,7 +1035,8 @@ const handleSubmit = async (e) => {
                               }}
                               onChange={(e) => updateEntry(dayIndex, entryIndex, "start_time", e.target.value)}
                               onBlur={(e) => applyManualEntryTime(dayIndex, entryIndex, "start_time", e.target.value)}
-                              className="mt-1 h-10 text-sm"
+                              onKeyDown={(e) => handleManualTimeKeyDown(e, dayIndex, entryIndex, "start_time")}
+                              className="mobile-time-entry-input mt-1 h-12 text-base font-bold"
                               data-testid={"mobile-start-" + dayIndex + "-" + entryIndex}
                             />
                             <div className="mobile-time-button-row mt-1 grid grid-cols-2 gap-1">
@@ -1058,7 +1067,8 @@ const handleSubmit = async (e) => {
                               }}
                               onChange={(e) => updateEntry(dayIndex, entryIndex, "finish_time", e.target.value)}
                               onBlur={(e) => applyManualEntryTime(dayIndex, entryIndex, "finish_time", e.target.value)}
-                              className="mt-1 h-10 text-sm"
+                              onKeyDown={(e) => handleManualTimeKeyDown(e, dayIndex, entryIndex, "finish_time")}
+                              className="mobile-time-entry-input mt-1 h-12 text-base font-bold"
                               data-testid={"mobile-finish-" + dayIndex + "-" + entryIndex}
                             />
                             <div className="mobile-time-button-row mt-1 grid grid-cols-2 gap-1">
