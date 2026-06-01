@@ -235,14 +235,15 @@ export default function EmployeeDashboard() {
       View
     </Button>
 
-    {(ts.status === "submitted" || ts.status === "rejected") && (
+    {/* TIMESHEET EMPLOYEE REJECTED EDIT ONLY V1 */
+    ts.status === "rejected" && (
       <Button
         variant="ghost"
         size="sm"
         onClick={() => navigate(`/timesheet/${ts.id}/edit`)}
         data-testid={`edit-timesheet-${ts.id}`}
       >
-        Edit
+        Fix / Resubmit
       </Button>
     )}
     {user?.role === "admin" && ts.status === "rejected" && (

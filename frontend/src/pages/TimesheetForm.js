@@ -675,6 +675,13 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
       setEmployeeName(ts.employee_name || user?.name || "");
       setPeriodType(ts.period_type || "weekly");
       setWeekEnding(ts.week_ending ? new Date(ts.week_ending) : null);
+      // TIMESHEET REJECTED EMPLOYEE EDIT GUARD V1
+      if (user?.role === "employee" && ts.status && ts.status !== "rejected") {
+        toast.error("Submitted and approved timesheets are read-only. Ask an admin or PM to reject/return it if changes are needed.");
+        navigate(`/timesheet/${id}`);
+        return;
+      }
+
       setDays(normalizeDays(ts.days));
       setMessages(ts.messages || "");
       setNightsAway(ts.nights_away || 0);
@@ -691,7 +698,7 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
 
   loadTimesheet();
 
-}, [isEditing, id, user, isFreshStart, freshStartStamp]);
+}, [isEditing, id, user, isFreshStart, freshStartStamp, navigate]);
 
 const handleSubmit = async (e) => {
   e.preventDefault();

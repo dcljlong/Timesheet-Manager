@@ -26,19 +26,25 @@ export default function TimesheetView() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [tsRes, pmsRes] = await Promise.all([
-        axios.get(`${API}/timesheets/${id}`, { withCredentials: true }),
-        axios.get(`${API}/project-managers`, { withCredentials: true })
-      ]);
+      // TIMESHEET REJECTED OPEN RESILIENCE V1
+      // Load the timesheet first. PM reference names are helpful but must not block employees opening rejected timesheets.
+      const tsRes = await axios.get(`${API}/timesheets/${id}`, { withCredentials: true });
       setTimesheet(tsRes.data);
-      setPMs(pmsRes.data);
+
+      try {
+        const pmsRes = await axios.get(`${API}/project-managers`, { withCredentials: true });
+        setPMs(pmsRes.data || []);
+      } catch (pmErr) {
+        console.warn("Project manager reference list failed; showing timesheet without PM names", pmErr);
+        setPMs([]);
+      }
     } catch (err) {
-      toast.error("Failed to load timesheet");
-      navigate("/employee");
+      toast.error(formatApiError(err, "Failed to load timesheet"));
+      setTimesheet(null);
     } finally {
       setLoading(false);
     }
-  }, [id, navigate]);
+  }, [id]);
 
   useEffect(() => {
     fetchData();
@@ -207,8 +213,12 @@ export default function TimesheetView() {
             </div>
           </div>
           <div className="flex space-x-2">
-            {(timesheet.status === "submitted" || timesheet.status === "rejected") && 
-             (timesheet.user_id === user?.id || user?.role === "project_manager") && (
+            {/* TIMESHEET REJECTED EMPLOYEE EDIT RULE V1 */}
+            {(
+              (timesheet.user_id === user?.id && timesheet.status === "rejected") ||
+              (user?.role === "project_manager" && (timesheet.status === "submitted" || timesheet.status === "rejected")) ||
+              (user?.role === "admin" && (timesheet.status === "submitted" || timesheet.status === "rejected"))
+            ) && (
               <Button variant="outline" onClick={() => navigate(`/timesheet/${id}/edit`)} data-testid="edit-button">
                 <Edit className="w-4 h-4 mr-2" />
                 Edit
