@@ -2709,3 +2709,51 @@ body {
     max-width: 100% !important;
   }
 }
+
+/* TIMESHEET MANAGER / MOBILE TIMESHEET NO PAGE PAN V1
+   Final containment pass for the stacked New Timesheet mobile day-card layout.
+   Prevents nowrap buttons/select controls from widening the page while keeping the vertical card format.
+*/
+@media (max-width: 1023px) {
+  [data-testid="timesheet-form"] {
+    overscroll-behavior-x: none !important;
+    touch-action: pan-y !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"],
+  [data-testid="timesheet-mobile-grid"] *,
+  [data-testid="timesheet-mobile-totals"] {
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] input,
+  [data-testid="timesheet-mobile-grid"] select,
+  [data-testid="timesheet-mobile-grid"] textarea,
+  [data-testid="timesheet-mobile-grid"] button {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] button {
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    word-break: normal !important;
+    line-height: 1.12 !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-time-button-row,
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-action-row {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+}
+
+@media (max-width: 390px) {
+  [data-testid="timesheet-mobile-grid"] .mobile-time-button-row,
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-action-row {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
