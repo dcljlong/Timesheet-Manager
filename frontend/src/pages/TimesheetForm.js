@@ -994,7 +994,7 @@ const handleSubmit = async (e) => {
                       data-testid={"mobile-entry-" + dayIndex + "-" + entryIndex}
                     >
                       <div className="flex items-center justify-between gap-3 mb-3">
-                        <div className="text-[12px] font-black uppercase tracking-wide text-gray-900">
+                        <div className="mobile-entry-line-label text-[15px] font-black uppercase tracking-wide text-amber-900">
                           Line {entryIndex + 1}
                         </div>
                         <div className="text-sm font-bold text-gray-900">
@@ -1008,7 +1008,7 @@ const handleSubmit = async (e) => {
                           <select
                             value={entry.type || "work"}
                             onChange={(e) => updateEntry(dayIndex, entryIndex, "type", e.target.value)}
-                            className="mt-1 h-10 w-full rounded-md border border-gray-300 bg-white px-2 text-sm"
+                            className="mobile-entry-field mt-1 h-12 w-full rounded-md px-3 text-base font-bold"
                             data-testid={"mobile-type-" + dayIndex + "-" + entryIndex}
                           >
                             <option value="work">Work</option>
@@ -1036,7 +1036,7 @@ const handleSubmit = async (e) => {
                               onChange={(e) => updateEntry(dayIndex, entryIndex, "start_time", e.target.value)}
                               onBlur={(e) => applyManualEntryTime(dayIndex, entryIndex, "start_time", e.target.value)}
                               onKeyDown={(e) => handleManualTimeKeyDown(e, dayIndex, entryIndex, "start_time")}
-                              className="mobile-time-entry-input mt-1 h-12 text-base font-bold"
+                              className="mobile-entry-field mobile-time-entry-input mt-1 h-12 text-base font-bold"
                               data-testid={"mobile-start-" + dayIndex + "-" + entryIndex}
                             />
                             <div className="mobile-time-button-row mt-1 grid grid-cols-2 gap-1">
@@ -1068,7 +1068,7 @@ const handleSubmit = async (e) => {
                               onChange={(e) => updateEntry(dayIndex, entryIndex, "finish_time", e.target.value)}
                               onBlur={(e) => applyManualEntryTime(dayIndex, entryIndex, "finish_time", e.target.value)}
                               onKeyDown={(e) => handleManualTimeKeyDown(e, dayIndex, entryIndex, "finish_time")}
-                              className="mobile-time-entry-input mt-1 h-12 text-base font-bold"
+                              className="mobile-entry-field mobile-time-entry-input mt-1 h-12 text-base font-bold"
                               data-testid={"mobile-finish-" + dayIndex + "-" + entryIndex}
                             />
                             <div className="mobile-time-button-row mt-1 grid grid-cols-2 gap-1">
@@ -1095,7 +1095,7 @@ const handleSubmit = async (e) => {
                               saveMobileTimeDefaults({ lunch_duration: v });
                             }}
                           >
-                            <SelectTrigger className="mt-1 h-10 w-full text-sm" data-testid={"mobile-lunch-" + dayIndex + "-" + entryIndex}>
+                            <SelectTrigger className="mobile-entry-field mt-1 h-12 w-full text-base font-bold" data-testid={"mobile-lunch-" + dayIndex + "-" + entryIndex}>
                               <SelectValue placeholder="Select lunch" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1112,7 +1112,7 @@ const handleSubmit = async (e) => {
                             disabled={isLeaveType(entry.type)}
                             onValueChange={(v) => updateEntry(dayIndex, entryIndex, "job_number", v)}
                           >
-                            <SelectTrigger className="mt-1 h-10 w-full text-sm">
+                            <SelectTrigger className="mobile-entry-field mt-1 h-12 w-full text-base font-bold">
                               <SelectValue placeholder="Select Job" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1132,7 +1132,7 @@ const handleSubmit = async (e) => {
                             disabled={isLeaveType(entry.type)}
                             onValueChange={(v) => updateEntry(dayIndex, entryIndex, "task_code", v)}
                           >
-                            <SelectTrigger className="mt-1 h-10 w-full text-sm">
+                            <SelectTrigger className="mobile-entry-field mt-1 h-12 w-full text-base font-bold">
                               <SelectValue placeholder="Select Task" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1152,7 +1152,7 @@ const handleSubmit = async (e) => {
                             disabled={isLeaveType(entry.type)}
                             onValueChange={(v) => updateEntry(dayIndex, entryIndex, "project_manager_id", v)}
                           >
-                            <SelectTrigger className="mt-1 h-10 w-full text-sm">
+                            <SelectTrigger className="mobile-entry-field mt-1 h-12 w-full text-base font-bold">
                               <SelectValue placeholder="Select PM" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1170,7 +1170,7 @@ const handleSubmit = async (e) => {
                           <Textarea
                             value={entry.description || entry.other || ""}
                             onChange={(e) => updateEntry(dayIndex, entryIndex, "description", e.target.value)}
-                            className="mt-1 min-h-[72px] text-sm"
+                            className="mobile-entry-field mt-1 min-h-[88px] text-base font-semibold"
                             rows={2}
                             data-testid={"mobile-description-" + dayIndex + "-" + entryIndex}
                           />

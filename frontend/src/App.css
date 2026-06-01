@@ -2858,3 +2858,80 @@ body {
     color: #f8fafc !important;
   }
 }
+
+/* TIMESHEET MANAGER / MOBILE ENTRY FIELD CONSISTENCY V1
+   Applies the same readable mobile field treatment to Type, Start, Finish, Lunch, Job, Task, PM, and Description.
+   Also makes helper action buttons visually distinct without changing desktop table layout.
+*/
+@media (max-width: 1023px) {
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-field {
+    min-height: 3rem !important;
+    border: 2px solid rgba(148, 111, 45, 0.72) !important;
+    background: #fff8e8 !important;
+    color: #07111f !important;
+    font-size: 1rem !important;
+    font-weight: 800 !important;
+    line-height: 1.15 !important;
+    letter-spacing: 0.01em !important;
+    box-shadow: inset 0 0 0 1px rgba(245, 190, 80, 0.18), 0 1px 2px rgba(15, 23, 42, 0.08) !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] textarea.mobile-entry-field {
+    line-height: 1.28 !important;
+    text-align: left !important;
+    padding-top: 0.75rem !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] select.mobile-entry-field,
+  [data-testid="timesheet-mobile-grid"] button.mobile-entry-field {
+    text-align: left !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-field:focus,
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-field[data-state="open"] {
+    border-color: #07111f !important;
+    background: #ffffff !important;
+    outline: none !important;
+    box-shadow: 0 0 0 3px rgba(245, 190, 80, 0.35), 0 2px 8px rgba(15, 23, 42, 0.14) !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-line-label {
+    display: inline-flex !important;
+    align-items: center !important;
+    min-height: 1.75rem !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] [data-testid^="mobile-add-entry-"],
+  [data-testid="timesheet-mobile-grid"] .mobile-time-button-row button,
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-action-row button[data-testid^="mobile-start-now-"],
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-action-row button[data-testid^="mobile-finish-now-"] {
+    background: #fff3d6 !important;
+    border: 1px solid rgba(148, 111, 45, 0.56) !important;
+    color: #3b2a0b !important;
+    font-weight: 800 !important;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08) !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] [data-testid^="mobile-add-entry-"]:focus,
+  [data-testid="timesheet-mobile-grid"] .mobile-time-button-row button:focus,
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-action-row button[data-testid^="mobile-start-now-"]:focus,
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-action-row button[data-testid^="mobile-finish-now-"]:focus {
+    background: #ffe7ad !important;
+    border-color: #07111f !important;
+    outline: none !important;
+    box-shadow: 0 0 0 3px rgba(245, 190, 80, 0.34) !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-action-row button[data-testid^="mobile-clear-"] {
+    background: #fff1f2 !important;
+    border: 1px solid rgba(220, 38, 38, 0.42) !important;
+    color: #b91c1c !important;
+    font-weight: 800 !important;
+  }
+
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-entry-field {
+    background: rgba(245, 190, 80, 0.14) !important;
+    border-color: rgba(245, 190, 80, 0.62) !important;
+    color: #f8fafc !important;
+  }
+}
