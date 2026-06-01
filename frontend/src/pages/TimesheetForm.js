@@ -83,6 +83,16 @@ const emptyEntry = () => ({
   other: ""
 });
 
+const normaliseEntryType = (type) => {
+  const value = String(type || "work").trim().toLowerCase().replace(/[-\s]+/g, "_");
+
+  if (value.includes("public") && value.includes("holiday")) return "public_holiday";
+  if ((value.includes("ann") || value.includes("annual")) && value.includes("leave")) return "annual_leave";
+  if (value.includes("sick")) return "sick";
+
+  return value;
+};
+
 const initialDays = () => DAYS.map(day => ({ day, entries: [emptyEntry()] }));
 
 const normalizeDays = (incomingDays) => {
@@ -196,15 +206,6 @@ export default function TimesheetForm() {
         return entrySum + (entryType === targetType ? (parseFloat(entry.total_hours) || 0) : 0);
       }, 0);
     }, 0);
-  };
-  const normaliseEntryType = (type) => {
-    const value = String(type || "work").trim().toLowerCase().replace(/[-\s]+/g, "_");
-
-    if (value.includes("public") && value.includes("holiday")) return "public_holiday";
-    if ((value.includes("ann") || value.includes("annual")) && value.includes("leave")) return "annual_leave";
-    if (value.includes("sick")) return "sick";
-
-    return value;
   };
 
   const isLeaveType = (type) => {
