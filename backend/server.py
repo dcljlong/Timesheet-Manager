@@ -93,6 +93,7 @@ class JobNumberResponse(BaseModel):
     active: bool = True
 
 class TimeEntry(BaseModel):
+    type: Optional[str] = "work"
     start_time: Optional[str] = None
     lunch_duration: Optional[str] = None  # "30" or "60" minutes
     finish_time: Optional[str] = None
@@ -500,6 +501,7 @@ async def delete_job_number(job_id: str, request: Request):
     return {"message": "Job number deleted"}
 
 LEAVE_ENTRY_TYPES = {"public_holiday", "annual_leave", "sick"}
+UNPAID_ENTRY_TYPES = {"unpaid_day_off"}
 
 def _normalise_entry_type(value):
     return str(value or "work").strip().lower().replace(" ", "_")
@@ -516,7 +518,8 @@ def validate_timesheet_entries(days, require_signature=False, employee_signature
         raise HTTPException(status_code=400, detail="At least one timesheet day is required")
 
     has_any_entry = False
-    leave_types = {"public_holiday", "annual_leave", "sick"}
+    leave_types = LEAVE_ENTRY_TYPES
+    unpaid_types = UNPAID_ENTRY_TYPES
 
     def norm_type(value):
         raw = str(value or "work").strip().lower().replace("-", "_").replace(" ", "_")
@@ -526,6 +529,8 @@ def validate_timesheet_entries(days, require_signature=False, employee_signature
             return "annual_leave"
         if "sick" in raw:
             return "sick"
+        if "unpaid" in raw:
+            return "unpaid_day_off"
         return raw
 
     def has_value(value):
@@ -557,7 +562,14 @@ def validate_timesheet_entries(days, require_signature=False, employee_signature
                 has_any_entry = True
                 continue
 
-            row_has_any_value = any(has_value(entry.get(field)) for field, _ in required_work_fields) or total_hours > 0
+            if entry_type in unpaid_types:
+                if total_hours > 0:
+                    raise HTTPException(status_code=400, detail=f"Unpaid day off must be 0 hours on {day_name}")
+                has_any_entry = True
+                continue
+
+            work_started_fields = [(field, label) for field, label in required_work_fields if field != "lunch_duration"]
+            row_has_any_value = any(has_value(entry.get(field)) for field, _ in work_started_fields) or total_hours > 0
             if not row_has_any_value:
                 continue
 

@@ -89,6 +89,7 @@ const normaliseEntryType = (type) => {
   if (value.includes("public") && value.includes("holiday")) return "public_holiday";
   if ((value.includes("ann") || value.includes("annual")) && value.includes("leave")) return "annual_leave";
   if (value.includes("sick")) return "sick";
+  if (value.includes("unpaid")) return "unpaid_day_off";
 
   return value;
 };
@@ -111,7 +112,7 @@ const normalizeDays = (incomingDays) => {
             lunch_duration: e.lunch_duration || "",
             finish_time: e.finish_time || "",
             total_hours:
-  (e.type && !["public_holiday","annual_leave","sick"].includes(normaliseEntryType(e.type)))
+  (e.type && !["public_holiday","annual_leave","sick","unpaid_day_off"].includes(normaliseEntryType(e.type)))
     ? ((e.start_time && e.finish_time) ? parseFloat(e.total_hours || 0) : 0)
     : parseFloat(e.total_hours || 0),
             job_number: e.job_number || "",
@@ -208,8 +209,16 @@ export default function TimesheetForm() {
     }, 0);
   };
 
-  const isLeaveType = (type) => {
+  const isPaidLeaveType = (type) => {
     return ["public_holiday", "annual_leave", "sick"].includes(normaliseEntryType(type));
+  };
+
+  const isUnpaidDayOffType = (type) => {
+    return normaliseEntryType(type) === "unpaid_day_off";
+  };
+
+  const isLeaveType = (type) => {
+    return isPaidLeaveType(type) || isUnpaidDayOffType(type);
   };
 
   const getDefaultLeaveHours = (dayLabel) => {
@@ -240,7 +249,7 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
     }
 
     if (field === "type") {
-      if (isLeaveType(value)) {
+      if (isPaidLeaveType(value)) {
         entry.start_time = "";
         entry.lunch_duration = "";
         entry.finish_time = "";
@@ -248,6 +257,16 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
         entry.task_code = "";
         entry.project_manager_id = "";
         entry.total_hours = getDefaultLeaveHours(dayLabel);
+      } else if (isUnpaidDayOffType(value)) {
+        entry.start_time = "";
+        entry.lunch_duration = "";
+        entry.finish_time = "";
+        entry.job_number = "";
+        entry.task_code = "";
+        entry.project_manager_id = "";
+        entry.total_hours = 0;
+        entry.description = entry.description || "Unpaid day off";
+        entry.other = entry.other || "Unpaid day off";
       } else {
         entry.total_hours = 0;
       }
@@ -666,7 +685,10 @@ const handleSubmit = async (e) => {
         ...day,
         entries: (day.entries || []).filter((entry) => {
           const type = normaliseEntryType(entry.type || "work");
-          if (isLeaveType(type)) {
+          if (isUnpaidDayOffType(type)) {
+            return true;
+          }
+          if (isPaidLeaveType(type)) {
             return (parseFloat(entry.total_hours) || 0) > 0;
           }
           return (
@@ -702,7 +724,7 @@ const handleSubmit = async (e) => {
 
     const leaveEntryMissingHours = days
       .flatMap((day) => (day.entries || []).map((entry) => ({ day: day.day, entry })))
-      .find(({ entry }) => isLeaveType(entry.type || "work") && (parseFloat(entry.total_hours) || 0) <= 0);
+      .find(({ entry }) => isPaidLeaveType(entry.type || "work") && (parseFloat(entry.total_hours) || 0) <= 0);
 
     if (leaveEntryMissingHours) {
       toast.error(`Leave hours are required on ${leaveEntryMissingHours.day}`);
@@ -714,8 +736,9 @@ const handleSubmit = async (e) => {
       .find(({ entry }) => {
         if (isLeaveType(normaliseEntryType(entry.type || "work"))) return false;
 
+        const workStartedFields = requiredWorkFields.filter(([field]) => field !== "lunch_duration");
         const rowHasAnyValue =
-          requiredWorkFields.some(([field]) => hasEntryValue(entry[field])) ||
+          workStartedFields.some(([field]) => hasEntryValue(entry[field])) ||
           (parseFloat(entry.total_hours) || 0) > 0;
 
         if (!rowHasAnyValue) return false;
@@ -1016,6 +1039,7 @@ const handleSubmit = async (e) => {
                             data-testid={"mobile-type-" + dayIndex + "-" + entryIndex}
                           >
                             <option value="work">Work</option>
+                            <option value="unpaid_day_off">Unpaid day off</option>
                             <option value="public_holiday">Public Holiday</option>
                             <option value="annual_leave">Annual Leave</option>
                             <option value="sick">Sick</option>
@@ -1211,6 +1235,8 @@ const handleSubmit = async (e) => {
               <div className="grid grid-cols-2 gap-2 text-[12px]">
                 <div>Work</div>
                 <div className="text-right font-semibold">{getTypeTotalHours("work").toFixed(2)} hrs</div>
+                <div>Unpaid day off</div>
+                <div className="text-right font-semibold">{getTypeTotalHours("unpaid_day_off").toFixed(2)} hrs</div>
                 <div>Public Holiday</div>
                 <div className="text-right font-semibold">{getTypeTotalHours("public_holiday").toFixed(2)} hrs</div>
                 <div>Annual Leave</div>
@@ -1260,6 +1286,7 @@ const handleSubmit = async (e) => {
               className="w-28 text-[11px] border rounded px-1 py-0.5"
             >
               <option value="work">Work</option>
+              <option value="unpaid_day_off">Unpaid day off</option>
               <option value="public_holiday">Public Holiday</option>
               <option value="annual_leave">Annual Leave</option>
               <option value="sick">Sick</option>
@@ -1413,6 +1440,11 @@ const handleSubmit = async (e) => {
     <tr className="bg-gray-50 border-t">
   <td colSpan="5" className="p-1 text-right font-medium">Work</td>
   <td className="p-1 font-medium">{getTypeTotalHours("work").toFixed(2)}</td>
+  <td colSpan="5"></td>
+</tr>
+<tr className="bg-gray-50">
+  <td colSpan="5" className="p-1 text-right font-medium">Unpaid day off</td>
+  <td className="p-1 font-medium">{getTypeTotalHours("unpaid_day_off").toFixed(2)}</td>
   <td colSpan="5"></td>
 </tr>
 <tr className="bg-gray-50">

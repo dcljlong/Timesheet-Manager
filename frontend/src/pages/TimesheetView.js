@@ -84,6 +84,15 @@ export default function TimesheetView() {
         }, 0);
       }, 0);
     };
+
+  const formatEntryTypeLabel = (type) => {
+    const normalised = String(type || "work").trim().toLowerCase().replace(/[-\s]+/g, "_");
+    if (normalised === "unpaid_day_off") return "Unpaid day off";
+    if (normalised === "public_holiday") return "Public Holiday";
+    if (normalised === "annual_leave") return "Annual Leave";
+    if (normalised === "sick") return "Sick";
+    return "Work";
+  };
   const handlePMApprove = async () => {
     if (!pmSignature) {
       toast.error("Please sign before approving");
@@ -284,6 +293,7 @@ export default function TimesheetView() {
               <thead>
                 <tr className="bg-gray-100 text-gray-700 uppercase text-xs tracking-wide">
                   <th className="p-2 border text-left font-semibold">Day</th>
+                  <th className="p-2 border text-left font-semibold">Type</th>
                   <th className="p-2 border text-left font-semibold">Start</th>
                   <th className="p-2 border text-left font-semibold">Lunch</th>
                   <th className="p-2 border text-left font-semibold">Finish</th>
@@ -303,6 +313,7 @@ export default function TimesheetView() {
                           {day.day}
                         </td>
                       )}
+                      <td className="px-3 py-2 border border-gray-200 font-medium">{formatEntryTypeLabel(entry.type)}</td>
                       <td className="px-3 py-2 border border-gray-200">{entry.start_time || "-"}</td>
                       <td className="px-3 py-2 border border-gray-200">{entry.lunch_duration ? `${entry.lunch_duration}m` : "-"}</td>
                       <td className="px-3 py-2 border border-gray-200">{entry.finish_time || "-"}</td>
@@ -315,7 +326,7 @@ export default function TimesheetView() {
                   ))
                 ))}
                 <tr className="bg-gray-900 text-white font-bold">
-                  <td colSpan="4" className="p-3 border text-right">TOTAL HOURS:</td>
+                  <td colSpan="5" className="p-3 border text-right">TOTAL HOURS:</td>
                   <td className="p-3 border text-lg" data-testid="view-total-hours">{getCalculatedTotalHours().toFixed(2)}</td>
                   <td colSpan="4" className="p-3 border"></td>
                 </tr>
