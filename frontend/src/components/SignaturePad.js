@@ -98,7 +98,24 @@ const SignaturePad = forwardRef(({ onSignatureChange, initialSignature, label, d
   const getSignatureData = () => {
     const canvas = canvasRef.current;
     if (!canvas || !hasSignatureRef.current) return null;
-    return canvas.toDataURL("image/png");
+
+    const sourceWidth = canvas.width || 640;
+    const sourceHeight = canvas.height || 180;
+    const exportWidth = 640;
+    const exportHeight = Math.max(160, Math.round((sourceHeight / Math.max(sourceWidth, 1)) * exportWidth));
+
+    const exportCanvas = document.createElement("canvas");
+    exportCanvas.width = exportWidth;
+    exportCanvas.height = exportHeight;
+
+    const exportCtx = exportCanvas.getContext("2d");
+    if (!exportCtx) return canvas.toDataURL("image/png");
+
+    exportCtx.fillStyle = "#ffffff";
+    exportCtx.fillRect(0, 0, exportWidth, exportHeight);
+    exportCtx.drawImage(canvas, 0, 0, sourceWidth, sourceHeight, 0, 0, exportWidth, exportHeight);
+
+    return exportCanvas.toDataURL("image/jpeg", 0.72);
   };
 
   const clearSignature = () => {

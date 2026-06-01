@@ -508,14 +508,21 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
           : employeeSignature
       };
 
-      draftRef.current = nextDraft;
-      localStorage.setItem(getDraftKey(isEditing, id), JSON.stringify(nextDraft));
+      const signatureForBackup = nextDraft.employee_signature || null;
+      const draftForStorage = { ...nextDraft, employee_signature: null };
 
-      if (nextDraft.employee_signature) {
-        localStorage.setItem(getSignatureDraftKey(isEditing, id), nextDraft.employee_signature);
-      } else {
-        localStorage.removeItem(getSignatureDraftKey(isEditing, id));
+      try {
+        if (signatureForBackup) {
+          localStorage.setItem(getSignatureDraftKey(isEditing, id), signatureForBackup);
+        } else {
+          localStorage.removeItem(getSignatureDraftKey(isEditing, id));
+        }
+      } catch (signatureError) {
+        console.error("Signature backup save failed", signatureError);
       }
+
+      draftRef.current = nextDraft;
+      localStorage.setItem(getDraftKey(isEditing, id), JSON.stringify(draftForStorage));
     } catch (e) {
       console.error("Draft save failed", e);
     }
@@ -849,19 +856,8 @@ const handleSubmit = async (e) => {
       return;
     }
 
-    const draft = {
-      employee_name: employeeName,
-      period_type: periodType,
-      week_ending: weekEnding ? weekEnding.toISOString() : null,
-      days,
-      messages,
-      nights_away: parseInt(nightsAway, 10) || 0,
-      employee_signature: employeeSignature
-    };
-
-    draftRef.current = draft;
-    localStorage.setItem(getDraftKey(isEditing, id), JSON.stringify(draft));
-  }, [employeeName, periodType, weekEnding, days, messages, nightsAway, employeeSignature, isEditing, id]);
+    saveDraftNow();
+  }, [saveDraftNow]);
   // LOAD task codes + project managers
   
 
