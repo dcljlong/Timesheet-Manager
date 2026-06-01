@@ -302,8 +302,8 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
         entry.task_code = "";
         entry.project_manager_id = "";
         entry.total_hours = 0;
-        entry.description = entry.description || "Unpaid day off";
-        entry.other = entry.other || "Unpaid day off";
+        entry.description = entry.description || "No Work";
+        entry.other = entry.other || "No Work";
       } else {
         entry.total_hours = 0;
       }
@@ -1157,7 +1157,7 @@ const handleSubmit = async (e) => {
                           >
                             <option value="" disabled>Select type</option>
                             <option value="work">Work</option>
-                            <option value="unpaid_day_off">Unpaid day off</option>
+                            <option value="unpaid_day_off">No Work</option>
                             <option value="public_holiday">Public Holiday</option>
                             <option value="annual_leave">Annual Leave</option>
                             <option value="sick">Sick</option>
@@ -1353,7 +1353,7 @@ const handleSubmit = async (e) => {
               <div className="grid grid-cols-2 gap-2 text-[12px]">
                 <div>Work</div>
                 <div className="text-right font-semibold">{getTypeTotalHours("work").toFixed(2)} hrs</div>
-                <div>Unpaid day off</div>
+                <div>No Work</div>
                 <div className="text-right font-semibold">{getTypeTotalHours("unpaid_day_off").toFixed(2)} hrs</div>
                 <div>Public Holiday</div>
                 <div className="text-right font-semibold">{getTypeTotalHours("public_holiday").toFixed(2)} hrs</div>
@@ -1418,7 +1418,7 @@ const handleSubmit = async (e) => {
             >
               <option value="" disabled>Select type</option>
               <option value="work">Work</option>
-              <option value="unpaid_day_off">Unpaid day off</option>
+              <option value="unpaid_day_off">No Work</option>
               <option value="public_holiday">Public Holiday</option>
               <option value="annual_leave">Annual Leave</option>
               <option value="sick">Sick</option>
@@ -1575,7 +1575,7 @@ const handleSubmit = async (e) => {
   <td colSpan="5"></td>
 </tr>
 <tr className="bg-gray-50">
-  <td colSpan="5" className="p-1 text-right font-medium">Unpaid day off</td>
+  <td colSpan="5" className="p-1 text-right font-medium">No Work</td>
   <td className="p-1 font-medium">{getTypeTotalHours("unpaid_day_off").toFixed(2)}</td>
   <td colSpan="5"></td>
 </tr>
