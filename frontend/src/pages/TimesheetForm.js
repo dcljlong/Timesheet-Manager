@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useAuth, API, formatApiError } from "../App";
 import axios from "axios";
@@ -18,6 +18,7 @@ import SignaturePad from "../components/SignaturePad";
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const TIMESHEET_DRAFT_KEY = "timesheet_form_draft_v1";
 const DRAFT_DEBUG_KEY = "timesheet_form_draft_v1";
+const TIMESHEET_SIGNATURE_BACKUP_SUFFIX = "_signature_backup_v1";
 const REFERENCE_LIST_REFRESH_MS = 60000;
 const TIME_ROUNDING_MINUTES = 15;
 const MOBILE_TIME_DEFAULTS_KEY = "timesheet_mobile_time_defaults_v1";
@@ -65,6 +66,9 @@ const writeMobileTimeDefaults = (nextDefaults) => {
 
 const getDraftKey = (isEditing, id) =>
   isEditing && id ? `${TIMESHEET_DRAFT_KEY}_edit_${id}` : TIMESHEET_DRAFT_KEY;
+
+const getSignatureDraftKey = (isEditing, id) =>
+  `${getDraftKey(isEditing, id)}${TIMESHEET_SIGNATURE_BACKUP_SUFFIX}`;
 
 const emptyEntry = () => ({
   type: "work",
@@ -486,7 +490,7 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
 
   // ===== END RESTORED HELPERS =====
 
-    const saveDraftNow = (override = {}) => {
+    const saveDraftNow = useCallback((override = {}) => {
     try {
       const nextDraft = {
         employee_name: Object.prototype.hasOwnProperty.call(override, "employee_name") ? override.employee_name : employeeName,
@@ -506,15 +510,32 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
 
       draftRef.current = nextDraft;
       localStorage.setItem(getDraftKey(isEditing, id), JSON.stringify(nextDraft));
+
+      if (nextDraft.employee_signature) {
+        localStorage.setItem(getSignatureDraftKey(isEditing, id), nextDraft.employee_signature);
+      } else {
+        localStorage.removeItem(getSignatureDraftKey(isEditing, id));
+      }
     } catch (e) {
       console.error("Draft save failed", e);
     }
-  };
+  }, [employeeName, periodType, weekEnding, days, messages, nightsAway, employeeSignature, isEditing, id]);
 
   const handleEmployeeSignatureChange = (signatureData) => {
     setEmployeeSignature(signatureData);
     saveDraftNow({ employee_signature: signatureData });
   };
+
+  const persistCurrentSignatureDraft = useCallback(() => {
+    try {
+      const signatureData = signatureRef.current?.getSignature?.() || employeeSignature || null;
+      saveDraftNow({ employee_signature: signatureData });
+      return signatureData;
+    } catch (e) {
+      console.error("Signature draft persistence failed", e);
+      return null;
+    }
+  }, [employeeSignature, saveDraftNow]);
 
   useEffect(() => {
     if (!isFreshStart) return;
@@ -563,6 +584,7 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
 
   try {
     const raw = localStorage.getItem(draftKey);
+    const signatureBackup = localStorage.getItem(getSignatureDraftKey(isEditing, id));
 
     if (raw) {
       const draft = JSON.parse(raw);
@@ -574,7 +596,7 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
       setDays(normalizeDays(draft.days));
       setMessages(draft.messages || "");
       setNightsAway(draft.nights_away || 0);
-      setEmployeeSignature(draft.employee_signature || null);
+      setEmployeeSignature(draft.employee_signature || signatureBackup || null);
 
       draftLoadedRef.current = true;
       return;
@@ -798,6 +820,28 @@ const handleSubmit = async (e) => {
       document.removeEventListener("visibilitychange", handleReferenceListVisibilityChange);
     };
   }, []);
+  useEffect(() => {
+    const handleSignaturePageHide = () => {
+      persistCurrentSignatureDraft();
+    };
+
+    const handleSignatureVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        persistCurrentSignatureDraft();
+      }
+    };
+
+    window.addEventListener("pagehide", handleSignaturePageHide);
+    window.addEventListener("beforeunload", handleSignaturePageHide);
+    document.addEventListener("visibilitychange", handleSignatureVisibilityChange);
+
+    return () => {
+      window.removeEventListener("pagehide", handleSignaturePageHide);
+      window.removeEventListener("beforeunload", handleSignaturePageHide);
+      document.removeEventListener("visibilitychange", handleSignatureVisibilityChange);
+    };
+  }, [persistCurrentSignatureDraft]);
+
   useEffect(() => {
     if (!draftLoadedRef.current) return;
     if (suppressNextDraftSaveRef.current) {
