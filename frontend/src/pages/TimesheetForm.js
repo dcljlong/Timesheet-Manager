@@ -94,7 +94,7 @@ const normaliseEntryType = (type) => {
   return value;
 };
 
-const initialDays = () => DAYS.map(day => ({ day, entries: [emptyEntry()] }));
+const initialDays = () => DAYS.map(day => ({ day, entries: [] }));
 
 const normalizeDays = (incomingDays) => {
   if (!Array.isArray(incomingDays)) return initialDays();
@@ -121,7 +121,7 @@ const normalizeDays = (incomingDays) => {
             description: e.description || e.other || "",
             other: e.other || e.description || "",
           }))
-        : [emptyEntry()]
+        : []
     };
   });
 };
@@ -302,14 +302,18 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
       const currentDay = prev[dayIndex];
       if (!currentDay) return prev;
 
-      const lastEntry = currentDay.entries[currentDay.entries.length - 1];
-      const hasBlankLastEntry =
+      const currentEntries = Array.isArray(currentDay.entries) ? currentDay.entries : [];
+      const lastEntry = currentEntries[currentEntries.length - 1];
+      const hasBlankLastEntry = !!lastEntry &&
+        !isLeaveType(lastEntry.type) &&
         !lastEntry.start_time &&
         !lastEntry.finish_time &&
         !lastEntry.job_number &&
         !lastEntry.task_code &&
         !lastEntry.project_manager_id &&
-        !lastEntry.other;
+        !lastEntry.description &&
+        !lastEntry.other &&
+        (parseFloat(lastEntry.total_hours) || 0) <= 0;
 
       if (hasBlankLastEntry) {
         return prev;
@@ -317,12 +321,11 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
 
       const updated = prev.map((day, idx) =>
         idx === dayIndex
-          ? { ...day, entries: [...day.entries, emptyEntry()] }
+          ? { ...day, entries: [...currentEntries, emptyEntry()] }
           : day
       );
 
       saveDraftNow({ days: updated });
-      saveDraftNow(updated);
       return updated;
     });
   };
@@ -331,12 +334,28 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
       const currentDay = prev[dayIndex];
       if (!currentDay) return prev;
 
-      const nextEntries = currentDay.entries.filter((_, idx) => idx !== entryIndex);
-      const safeEntries = nextEntries.length ? nextEntries : [emptyEntry()];
+      const currentEntries = Array.isArray(currentDay.entries) ? currentDay.entries : [];
+      const nextEntries = currentEntries.filter((_, idx) => idx !== entryIndex);
 
       const updated = prev.map((day, idx) =>
         idx === dayIndex
-          ? { ...day, entries: safeEntries }
+          ? { ...day, entries: nextEntries }
+          : day
+      );
+
+      saveDraftNow({ days: updated });
+      return updated;
+    });
+  };
+
+  const clearDay = (dayIndex) => {
+    setDays(prev => {
+      const currentDay = prev[dayIndex];
+      if (!currentDay) return prev;
+
+      const updated = prev.map((day, idx) =>
+        idx === dayIndex
+          ? { ...day, entries: [] }
           : day
       );
 
@@ -998,19 +1017,39 @@ const handleSubmit = async (e) => {
                       Day total: <span className="font-semibold text-gray-800">{getDayTotal(dayIndex).toFixed(2)} hrs</span>
                     </p>
                   </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full px-2 py-2 text-[12px] font-semibold"
-                    onClick={() => addEntry(dayIndex)}
-                    data-testid={"mobile-add-entry-" + dayIndex}
-                  >
-                    Add Line
-                  </Button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full px-2 py-2 text-[12px] font-semibold"
+                      onClick={() => addEntry(dayIndex)}
+                      data-testid={"mobile-add-entry-" + dayIndex}
+                    >
+                      Add Line
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="w-full px-2 py-2 text-[12px] font-semibold text-red-700"
+                      onClick={() => clearDay(dayIndex)}
+                      disabled={!day.entries || day.entries.length === 0}
+                      data-testid={"mobile-clear-day-" + dayIndex}
+                    >
+                      Clear Day
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="space-y-3">
-                  {day.entries.map((entry, entryIndex) => (
+                  {(!day.entries || day.entries.length === 0) && (
+                    <div
+                      className="rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 p-4 text-center text-sm font-semibold text-gray-600"
+                      data-testid={"mobile-empty-day-" + dayIndex}
+                    >
+                      No entries for this day. Leave blank, or tap Add Line to record work or leave.
+                    </div>
+                  )}
+                  {(day.entries || []).map((entry, entryIndex) => (
                     <div
                       key={dayIndex + "-" + entryIndex}
                       className={
@@ -1268,8 +1307,21 @@ const handleSubmit = async (e) => {
 </thead>
 <tbody>
   {days.map((day, dayIndex) => (
-    <>
-      {day.entries.map((entry, entryIndex) => (
+    <React.Fragment key={day.day || dayIndex}>
+      {(!day.entries || day.entries.length === 0) && (
+        <tr className="border-b bg-gray-50" data-testid={"desktop-empty-day-" + dayIndex}>
+          <td className="p-2 font-medium">{day.day}</td>
+          <td colSpan="9" className="p-2 text-sm font-semibold text-gray-600">
+            No entries for this day.
+          </td>
+          <td className="p-2">
+            <Button type="button" size="sm" variant="outline" onClick={() => addEntry(dayIndex)} data-testid={"desktop-add-entry-empty-" + dayIndex}>
+              Add Line
+            </Button>
+          </td>
+        </tr>
+      )}
+      {(day.entries || []).map((entry, entryIndex) => (
         <tr key={`${dayIndex}-${entryIndex}`} className="border-b hover:bg-gray-50">
 
           {entryIndex === 0 && (
@@ -1434,7 +1486,7 @@ const handleSubmit = async (e) => {
             </td>
           </tr>
       ))}
-    </>
+    </React.Fragment>
   ))}
 
     <tr className="bg-gray-50 border-t">
