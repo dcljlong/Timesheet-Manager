@@ -6,6 +6,7 @@ const SignaturePad = forwardRef(({ onSignatureChange, initialSignature, label, d
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasSignature, setHasSignature] = useState(false);
+  const hasSignatureRef = useRef(false);
 
   useImperativeHandle(ref, () => ({
     clear: () => clearSignature(),
@@ -36,6 +37,7 @@ const SignaturePad = forwardRef(({ onSignatureChange, initialSignature, label, d
       const img = new Image();
       img.onload = () => {
         ctx.drawImage(img, 0, 0, rect.width, rect.height);
+        hasSignatureRef.current = true;
         setHasSignature(true);
       };
       img.src = initialSignature;
@@ -79,6 +81,7 @@ const SignaturePad = forwardRef(({ onSignatureChange, initialSignature, label, d
     
     ctx.lineTo(x, y);
     ctx.stroke();
+    hasSignatureRef.current = true;
     setHasSignature(true);
   };
 
@@ -87,14 +90,14 @@ const SignaturePad = forwardRef(({ onSignatureChange, initialSignature, label, d
     e.preventDefault();
     setIsDrawing(false);
     
-    if (hasSignature && onSignatureChange) {
+    if (hasSignatureRef.current && onSignatureChange) {
       onSignatureChange(getSignatureData());
     }
   };
 
   const getSignatureData = () => {
     const canvas = canvasRef.current;
-    if (!canvas || !hasSignature) return null;
+    if (!canvas || !hasSignatureRef.current) return null;
     return canvas.toDataURL("image/png");
   };
 
@@ -105,6 +108,7 @@ const SignaturePad = forwardRef(({ onSignatureChange, initialSignature, label, d
     const ctx = canvas.getContext("2d");
     const rect = canvas.getBoundingClientRect();
     ctx.clearRect(0, 0, rect.width, rect.height);
+    hasSignatureRef.current = false;
     setHasSignature(false);
     
     if (onSignatureChange) {

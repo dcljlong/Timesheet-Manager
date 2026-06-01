@@ -511,6 +511,11 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
     }
   };
 
+  const handleEmployeeSignatureChange = (signatureData) => {
+    setEmployeeSignature(signatureData);
+    saveDraftNow({ employee_signature: signatureData });
+  };
+
   useEffect(() => {
     if (!isFreshStart) return;
     if (hasConsumedFreshStart(freshStartStamp)) return;
@@ -1408,7 +1413,7 @@ const handleSubmit = async (e) => {
             <SignaturePad
               ref={signatureRef}
               label="Employee Signature (Sign to submit)"
-              onSignatureChange={setEmployeeSignature}
+              onSignatureChange={handleEmployeeSignatureChange}
               initialSignature={employeeSignature}
             />
           </div>
