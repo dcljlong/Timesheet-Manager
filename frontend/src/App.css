@@ -2976,3 +2976,68 @@ body {
     color: #f8fafc !important;
   }
 }
+
+/* TIMESHEET DARK TIMESHEET VIEW CONTRAST V1
+   Keeps rejected/not-approved details and summary tables readable in dark mode. */
+.dark [data-testid="timesheet-view"] .bg-red-50,
+.dark [data-testid="timesheet-view"] [class*="bg-red-50"] {
+  background-color: #fee2e2 !important;
+  border-color: #fca5a5 !important;
+  color: #7f1d1d !important;
+}
+
+.dark [data-testid="timesheet-view"] .text-red-800,
+.dark [data-testid="timesheet-view"] .text-red-700,
+.dark [data-testid="timesheet-view"] [class*="text-red"] {
+  color: #7f1d1d !important;
+}
+
+.dark [data-testid="timesheet-view"] .bg-amber-50,
+.dark [data-testid="timesheet-view"] [class*="bg-amber-50"] {
+  background-color: #fef3c7 !important;
+  border-color: #f59e0b !important;
+  color: #78350f !important;
+}
+
+.dark [data-testid="timesheet-view"] .text-amber-800,
+.dark [data-testid="timesheet-view"] .text-amber-700,
+.dark [data-testid="timesheet-view"] [class*="text-amber"] {
+  color: #78350f !important;
+}
+
+.dark [data-testid="timesheet-view"] table {
+  background-color: rgba(8, 14, 28, 0.98) !important;
+  border-color: rgba(245, 190, 80, 0.28) !important;
+}
+
+.dark [data-testid="timesheet-view"] thead tr,
+.dark [data-testid="timesheet-view"] th {
+  background-color: rgba(245, 190, 80, 0.16) !important;
+  color: #f8fafc !important;
+  border-color: rgba(245, 190, 80, 0.28) !important;
+}
+
+.dark [data-testid="timesheet-view"] tbody tr:not(:last-child),
+.dark [data-testid="timesheet-view"] tbody tr:not(:last-child) td {
+  background-color: rgba(8, 14, 28, 0.94) !important;
+  color: #f8fafc !important;
+  border-color: rgba(245, 190, 80, 0.20) !important;
+}
+
+.dark [data-testid="timesheet-view"] tbody tr:hover:not(:last-child),
+.dark [data-testid="timesheet-view"] tbody tr:hover:not(:last-child) td {
+  background-color: rgba(245, 190, 80, 0.08) !important;
+}
+
+.dark [data-testid="timesheet-view"] tbody tr:last-child,
+.dark [data-testid="timesheet-view"] tbody tr:last-child td {
+  background-color: #111827 !important;
+  color: #ffffff !important;
+  border-color: rgba(245, 190, 80, 0.28) !important;
+}
+
+.dark [data-testid="timesheet-view"] .bg-gray-50,
+.dark [data-testid="timesheet-view"] [class*="bg-gray-50"] {
+  background-color: rgba(15, 23, 42, 0.96) !important;
+  color: #f8fafc !important;
+}

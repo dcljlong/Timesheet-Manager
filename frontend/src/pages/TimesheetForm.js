@@ -72,6 +72,16 @@ const getSignatureDraftKey = (isEditing, id) =>
 
 const hasMeaningfulDraftData = (draft = {}) => {
   // TIMESHEET MEANINGFUL DRAFT ONLY V1
+  // Keep this helper self-contained so edit-page runtime cannot fail on declaration order.
+  const normaliseDraftEntryType = (type) => {
+    const value = String(type || "work").trim().toLowerCase().replace(/[-\s]+/g, "_");
+    if (value.includes("public") && value.includes("holiday")) return "public_holiday";
+    if ((value.includes("ann") || value.includes("annual")) && value.includes("leave")) return "annual_leave";
+    if (value.includes("sick")) return "sick";
+    if (value.includes("unpaid")) return "unpaid_day_off";
+    return value;
+  };
+
   const hasWeekEnding = !!draft.week_ending;
   const hasMessages = !!String(draft.messages || "").trim();
   const hasNightsAway = (parseInt(draft.nights_away, 10) || 0) > 0;
@@ -89,7 +99,7 @@ const hasMeaningfulDraftData = (draft = {}) => {
         entry.other
       ].some((value) => value !== null && value !== undefined && String(value).trim() !== "") ||
         (parseFloat(entry.total_hours) || 0) > 0 ||
-        ["public_holiday", "annual_leave", "sick", "unpaid_day_off"].includes(normaliseEntryType(entry.type));
+        ["public_holiday", "annual_leave", "sick", "unpaid_day_off"].includes(normaliseDraftEntryType(entry.type));
     })
   );
 
@@ -746,7 +756,10 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
       };
 
     } catch (err) {
-      console.error(err);
+      // TIMESHEET EDIT LOAD ERROR VISIBILITY V1
+      console.error("Timesheet edit load failed", err);
+      toast.error(formatApiError(err, "Could not load this timesheet for editing"));
+      navigate(`/timesheet/${id}`);
     } finally {
       setLoading(false);
       draftLoadedRef.current = true;
