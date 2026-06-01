@@ -93,7 +93,7 @@ export default function TimesheetView() {
 
   const formatEntryTypeLabel = (type) => {
     const normalised = String(type || "work").trim().toLowerCase().replace(/[-\s]+/g, "_");
-    if (normalised === "unpaid_day_off") return "Unpaid day off";
+    if (normalised === "unpaid_day_off") return "No Work";
     if (normalised === "public_holiday") return "Public Holiday";
     if (normalised === "annual_leave") return "Annual Leave";
     if (normalised === "sick") return "Sick";
