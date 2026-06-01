@@ -10,39 +10,59 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Switch } from "../components/ui/switch";
 import { ArrowLeft, Bell, Save } from "lucide-react";
 import Layout from "../components/Layout";
+import { playTimesheetReminderSound } from "../lib/reminderSound";
 
 export default function SettingsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [settings, setSettings] = useState({
+  const defaultSettings = {
     reminder_time: "17:00",
     reminder_day: "Friday",
+    reminder_frequency: "weekly",
     enabled: true
-  });
+  };
+
+  const [settings, setSettings] = useState(defaultSettings);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const { data } = await axios.get(`${API}/notification-settings`, { withCredentials: true });
+        if (data) {
+          setSettings({
+            reminder_time: "17:00",
+            reminder_day: "Friday",
+            reminder_frequency: "weekly",
+            enabled: true,
+            ...data,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch settings:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchSettings();
   }, []);
-
-  const fetchSettings = async () => {
-    try {
-      const { data } = await axios.get(`${API}/notification-settings`, { withCredentials: true });
-      if (data) {
-        setSettings(data);
-      }
-    } catch (err) {
-      console.error("Failed to fetch settings:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await axios.put(`${API}/notification-settings`, settings, { withCredentials: true });
+      const payload = {
+        ...defaultSettings,
+        ...settings,
+        reminder_frequency: settings.reminder_frequency || "weekly",
+        reminder_day: settings.reminder_day || "Friday",
+        reminder_time: settings.reminder_time || "17:00",
+        enabled: settings.enabled !== false,
+      };
+
+      await axios.put(`${API}/notification-settings`, payload, { withCredentials: true });
+      setSettings(payload);
       toast.success("Settings saved");
     } catch (err) {
       toast.error(formatApiError(err));
@@ -52,11 +72,14 @@ export default function SettingsPage() {
   };
 
   // Test notification sound
-  const playTestSound = () => {
-    const audio = new Audio("data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleAoAPJnUqXhQChIpmMSsfmY4KF2XsaBzYEY3XJKcimtfV1RphZN+bWJbZX2Oj3tsZ2Z0g4yCd3Bvdn6Bf3l1dXl9fnx6eHl6e3t7enp6ent7e3t7e3t7e3t7");
-    audio.volume = 0.5;
-    audio.play().catch(() => {});
-    toast.info("Test notification sound played");
+  const playTestSound = async () => {
+    try {
+      await playTimesheetReminderSound();
+      toast.success("Loud reminder sound played");
+    } catch (err) {
+      console.error("Reminder sound failed:", err);
+      toast.error("Sound blocked by the browser. Tap the page and try again.");
+    }
   };
 
   if (loading) {
@@ -90,7 +113,7 @@ export default function SettingsPage() {
           </div>
           
           <p className="text-sm text-gray-500 mb-6">
-            Configure when you want to receive reminder notifications if you haven't submitted your timesheet.
+            Configure daily or weekly app-open reminders. V1 reminders work while Timesheet Manager is open in the browser.
           </p>
 
           <div className="space-y-6">
@@ -98,7 +121,7 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <Label>Enable Reminders</Label>
-                <p className="text-sm text-gray-500">Get audible notifications for timesheet submission</p>
+                <p className="text-sm text-gray-500">Play a loud reminder in this browser when the reminder is due</p>
               </div>
               <Switch
                 checked={settings.enabled}
@@ -107,13 +130,34 @@ export default function SettingsPage() {
               />
             </div>
 
+            {/* Reminder Frequency */}
+            <div>
+              <Label>Reminder Frequency</Label>
+              <Select
+                value={settings.reminder_frequency || "weekly"}
+                onValueChange={(v) => setSettings({ ...settings, reminder_frequency: v })}
+                disabled={!settings.enabled}
+              >
+                <SelectTrigger className="mt-1 w-full" data-testid="reminder-frequency-select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="daily">Daily</SelectItem>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-xs text-gray-500">
+                Daily reminds every day at the selected time. Weekly reminds on the selected day and time.
+              </p>
+            </div>
+
             {/* Reminder Day */}
             <div>
-              <Label>Reminder Day</Label>
+              <Label>Weekly Reminder Day</Label>
               <Select
-                value={settings.reminder_day}
+                value={settings.reminder_day || "Friday"}
                 onValueChange={(v) => setSettings({ ...settings, reminder_day: v })}
-                disabled={!settings.enabled}
+                disabled={!settings.enabled || (settings.reminder_frequency || "weekly") === "daily"}
               >
                 <SelectTrigger className="mt-1 w-full" data-testid="reminder-day-select">
                   <SelectValue />
@@ -124,6 +168,9 @@ export default function SettingsPage() {
                   ))}
                 </SelectContent>
               </Select>
+              <p className="mt-1 text-xs text-gray-500">
+                Day is only used for weekly reminders.
+              </p>
             </div>
 
             {/* Reminder Time */}
@@ -148,7 +195,7 @@ export default function SettingsPage() {
                 data-testid="test-sound-button"
               >
                 <Bell className="w-4 h-4 mr-2" />
-                Test Notification Sound
+                Test Loud Reminder Sound
               </Button>
             </div>
           </div>

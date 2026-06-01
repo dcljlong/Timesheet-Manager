@@ -167,7 +167,8 @@ class TimesheetApproval(BaseModel):
 
 class NotificationSettingsUpdate(BaseModel):
     reminder_time: str  # HH:MM format
-    reminder_day: str  # Day of week for submission reminder
+    reminder_day: str = "Friday"  # Day of week for weekly submission reminder
+    reminder_frequency: str = "weekly"  # daily or weekly
     enabled: bool = True
 
 # ==================== HELPER FUNCTIONS ====================
@@ -273,6 +274,7 @@ async def register(user: UserCreate, response: Response):
         "notification_settings": {
             "reminder_time": "17:00",
             "reminder_day": "Friday",
+            "reminder_frequency": "weekly",
             "enabled": True
         }
     }
@@ -2300,18 +2302,29 @@ async def get_user_defaults(request: Request):
 async def get_notification_settings(request: Request):
     user = await get_current_user(request)
     db_user = await db.users.find_one({"_id": ObjectId(user["id"])})
-    return db_user.get("notification_settings", {
-        "reminder_time": "17:00",
-        "reminder_day": "Friday",
-        "enabled": True
-    })
+    stored_settings = (db_user or {}).get("notification_settings") or {}
+
+    return {
+        "reminder_time": stored_settings.get("reminder_time", "17:00"),
+        "reminder_day": stored_settings.get("reminder_day", "Friday"),
+        "reminder_frequency": stored_settings.get("reminder_frequency", "weekly"),
+        "enabled": stored_settings.get("enabled", True)
+    }
 
 @api_router.put("/notification-settings")
 async def update_notification_settings(settings: NotificationSettingsUpdate, request: Request):
     user = await get_current_user(request)
+    payload = settings.model_dump()
+
+    if payload.get("reminder_frequency") not in ["daily", "weekly"]:
+        payload["reminder_frequency"] = "weekly"
+
+    if payload.get("reminder_day") not in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]:
+        payload["reminder_day"] = "Friday"
+
     await db.users.update_one(
         {"_id": ObjectId(user["id"])},
-        {"$set": {"notification_settings": settings.model_dump()}}
+        {"$set": {"notification_settings": payload}}
     )
     return {"message": "Settings updated"}
 
@@ -2400,6 +2413,7 @@ async def create_user(user_create: UserCreate, request: Request):
         "notification_settings": {
             "reminder_time": "17:00",
             "reminder_day": "Friday",
+            "reminder_frequency": "weekly",
             "enabled": True
         },
         "smartly_employee_code": "",
@@ -2555,7 +2569,7 @@ async def startup_event():
                 "name": admin_name,
                 "role": "admin",
                 "created_at": datetime.now(timezone.utc),
-                "notification_settings": {"reminder_time": "17:00", "reminder_day": "Friday", "enabled": True}
+                "notification_settings": {"reminder_time": "17:00", "reminder_day": "Friday", "reminder_frequency": "weekly", "enabled": True}
             })
             logger.info(f"Configured admin user created: {admin_email}")
         else:

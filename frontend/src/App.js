@@ -1,9 +1,10 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { Toaster, toast } from "sonner";
 import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import axios from "axios";
-import { Toaster } from "sonner";
 import api, { API_BASE_URL } from "./lib/api";
+import { playTimesheetReminderSound, TIMESHEET_REMINDER_SOUND_MARKER } from "./lib/reminderSound";
 
 export const API = API_BASE_URL;
 
@@ -208,12 +209,98 @@ const RoleBasedRedirect = () => {
   }
 };
 
+const REMINDER_CHECK_INTERVAL_MS = 60000;
+const REMINDER_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+const normaliseReminderSettings = (settings = {}) => ({
+  reminder_time: settings.reminder_time || "17:00",
+  reminder_day: settings.reminder_day || "Friday",
+  reminder_frequency: settings.reminder_frequency || "weekly",
+  enabled: settings.enabled !== false,
+});
+
+const isReminderDueNow = (settings, now) => {
+  if (!settings.enabled) return false;
+
+  const [hourText, minuteText] = String(settings.reminder_time || "17:00").split(":");
+  const targetHour = Number(hourText);
+  const targetMinute = Number(minuteText);
+
+  if (!Number.isFinite(targetHour) || !Number.isFinite(targetMinute)) return false;
+
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const targetMinutes = targetHour * 60 + targetMinute;
+
+  if (currentMinutes < targetMinutes) return false;
+
+  if (settings.reminder_frequency === "daily") return true;
+
+  return REMINDER_DAYS[now.getDay()] === settings.reminder_day;
+};
+
+const getReminderFiredKey = (settings, now) => {
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+
+  return `timesheet_reminder_fired_v1_${settings.reminder_frequency || "weekly"}_${yyyy}-${mm}-${dd}`;
+};
+
+const TimesheetReminderRunner = () => {
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (!user || user === false) return undefined;
+
+    let stopped = false;
+
+    const checkReminder = async () => {
+      try {
+        const { data } = await api.get("/notification-settings");
+        if (stopped) return;
+
+        const settings = normaliseReminderSettings(data);
+        const now = new Date();
+
+        if (!isReminderDueNow(settings, now)) return;
+
+        const firedKey = getReminderFiredKey(settings, now);
+        if (window.localStorage.getItem(firedKey) === "1") return;
+
+        window.localStorage.setItem(firedKey, TIMESHEET_REMINDER_SOUND_MARKER);
+
+        toast.warning("Timesheet reminder: fill in your timesheet.", {
+          duration: 12000,
+          description: settings.reminder_frequency === "daily"
+            ? "Daily reminder from your Settings page."
+            : `Weekly reminder for ${settings.reminder_day}.`,
+        });
+
+        await playTimesheetReminderSound();
+      } catch (err) {
+        console.error("Timesheet reminder check failed:", err);
+      }
+    };
+
+    checkReminder();
+    const intervalId = window.setInterval(checkReminder, REMINDER_CHECK_INTERVAL_MS);
+
+    return () => {
+      stopped = true;
+      window.clearInterval(intervalId);
+    };
+  }, [user]);
+
+  return null;
+};
+
 function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
         <BrowserRouter>
         <Toaster position="top-right" richColors />
+        <TimesheetReminderRunner />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route
