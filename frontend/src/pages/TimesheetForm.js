@@ -1233,6 +1233,7 @@ const handleSubmit = async (e) => {
                               <SelectValue placeholder="Select lunch" />
                             </SelectTrigger>
                             <SelectContent>
+                              <SelectItem value="0">No lunch</SelectItem>
                               <SelectItem value="30">30 minutes</SelectItem>
                               <SelectItem value="60">60 minutes</SelectItem>
                             </SelectContent>

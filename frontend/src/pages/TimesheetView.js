@@ -200,26 +200,26 @@ export default function TimesheetView() {
     <Layout>
       <div className="fade-in print:p-0" data-testid="timesheet-view">
         {/* Header */}
-        <div className="flex items-center justify-between mb-5 print:hidden">
-          <div className="flex items-center">
-            <Button variant="ghost" onClick={() => navigate(-1)} className="mr-4" data-testid="back-button">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-5 print:hidden" data-testid="timesheet-view-header">
+          <div className="flex min-w-0 items-start">
+            <Button variant="ghost" onClick={() => navigate(-1)} className="mr-3 shrink-0 px-2 py-2" data-testid="back-button">
               <ArrowLeft className="w-4 h-4" />
             </Button>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900" data-testid="view-title">
+            <div className="min-w-0">
+              <h1 className="text-2xl font-bold leading-tight text-gray-900" data-testid="view-title">
                 Timesheet Summary
               </h1>
-              <p className="text-gray-500">{timesheet.employee_name}</p>
+              <p className="truncate text-gray-500">{timesheet.employee_name}</p>
             </div>
           </div>
-          <div className="flex space-x-2">
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-nowrap sm:justify-end">
             {/* TIMESHEET REJECTED EMPLOYEE EDIT RULE V1 */}
             {(
               (timesheet.user_id === user?.id && timesheet.status === "rejected") ||
               (user?.role === "project_manager" && (timesheet.status === "submitted" || timesheet.status === "rejected")) ||
               (user?.role === "admin" && (timesheet.status === "submitted" || timesheet.status === "rejected"))
             ) && (
-              <Button variant="outline" onClick={() => navigate(`/timesheet/${id}/edit`)} data-testid="edit-button">
+              <Button variant="outline" onClick={() => navigate(`/timesheet/${id}/edit`)} className="w-full px-3 py-2 text-sm sm:w-auto" data-testid="edit-button">
                 <Edit className="w-4 h-4 mr-2" />
                 Edit
               </Button>
@@ -228,15 +228,15 @@ export default function TimesheetView() {
               <Button
                 variant="outline"
                 onClick={handleDeleteRejectedTimesheet}
-                className="text-red-600 border-red-300 hover:bg-red-50"
+                className="w-full px-3 py-2 text-sm text-red-600 border-red-300 hover:bg-red-50 sm:w-auto"
                 disabled={deleting}
                 data-testid="delete-rejected-timesheet-button"
               >
                 <Trash2 className="w-4 h-4 mr-2" />
-                {deleting ? "Deleting..." : "Delete rejected"}
+                {deleting ? "Deleting..." : (<><span className="sm:hidden">Delete</span><span className="hidden sm:inline">Delete rejected</span></>)}
               </Button>
             )}
-            <Button variant="outline" onClick={exportPDF} data-testid="export-button">
+            <Button variant="outline" onClick={exportPDF} className="w-full px-3 py-2 text-sm sm:w-auto" data-testid="export-button">
               <Download className="w-4 h-4 mr-2" />
               Print/PDF
             </Button>
