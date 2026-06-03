@@ -3195,3 +3195,74 @@ body {
   }
 }
 /* TIMESHEET MANAGER / MOBILE VIEWPORT LOCK V3 END */
+/* TIMESHEET MANAGER / MOBILE STAFF USE DENSITY V1
+   Fine-tunes the stacked New Timesheet mobile layout for first real staff use.
+   Keeps the desktop table layout unchanged.
+*/
+@media (max-width: 1023px) {
+  [data-testid="timesheet-form"] > form > .card:first-child {
+    padding: 1rem !important;
+    margin-bottom: 1rem !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] {
+    gap: 0.75rem !important;
+    margin-bottom: 1rem !important;
+  }
+
+  [data-testid^="mobile-day-card-"] {
+    padding: 0.75rem !important;
+    border-radius: 0.9rem !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-card {
+    padding: 0.75rem !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] label {
+    font-size: 0.78rem !important;
+    font-weight: 800 !important;
+    color: #334155 !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-field,
+  [data-testid="timesheet-mobile-grid"] .mobile-time-entry-input {
+    min-height: 2.75rem !important;
+    font-size: 0.95rem !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-time-button-row,
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-action-row {
+    gap: 0.35rem !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-time-button-row button,
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-action-row button {
+    min-height: 2.35rem !important;
+    padding: 0.35rem 0.45rem !important;
+    font-size: 0.72rem !important;
+  }
+
+  [data-testid="timesheet-mobile-totals"] {
+    border-radius: 0.9rem !important;
+  }
+
+  .dark [data-testid="timesheet-mobile-grid"] label {
+    color: #e2e8f0 !important;
+  }
+}
+
+@media (max-width: 390px) {
+  [data-testid="timesheet-mobile-grid"] .mobile-time-button-row,
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-action-row {
+    grid-template-columns: repeat(auto-fit, minmax(4.6rem, 1fr)) !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-time-button-row button,
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-action-row button {
+    font-size: 0.68rem !important;
+    padding-left: 0.32rem !important;
+    padding-right: 0.32rem !important;
+  }
+}
+/* TIMESHEET MANAGER / MOBILE STAFF USE DENSITY V1 END */

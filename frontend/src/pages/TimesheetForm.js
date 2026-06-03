@@ -1006,7 +1006,7 @@ const handleSubmit = async (e) => {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center">
-            <Button variant="ghost" className="px-1 py-1 text-[11px]" onClick={() => { saveDraftNow(); navigate(-1); }} className="mr-4" data-testid="back-button">
+            <Button variant="ghost" className="mr-4 px-2 py-2 text-[12px]" onClick={() => { saveDraftNow(); navigate(-1); }} data-testid="back-button">
               <ArrowLeft className="w-4 h-4" />
             </Button>
             <h1 className="text-lg font-semibold text-gray-900" data-testid="form-title">
@@ -1044,8 +1044,8 @@ const handleSubmit = async (e) => {
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
-                      variant="outline" className="px-1\.5 py-0\.5 text-[10px]"
-                      className="w-full mt-1 justify-start text-left font-normal"
+                      variant="outline"
+                      className="w-full mt-1 justify-start text-left font-normal px-2 py-2 text-[12px]"
                       data-testid="week-ending-button"
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
