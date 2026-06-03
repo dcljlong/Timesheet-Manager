@@ -138,7 +138,7 @@ export default function ManageUsers() {
       "https://timesheet-manager-two.vercel.app",
       "",
       `Your login email is: ${email}`,
-      "David will provide your temporary password separately.",
+      "Your temporary password will be provided separately.",
       "",
       "Save it to your phone:",
       "iPhone: open the link in Safari, tap Share, then Add to Home Screen.",
@@ -153,7 +153,7 @@ export default function ManageUsers() {
     ].join("\n"));
 
     window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
-    toast.success("Invite email draft opened");
+    toast.success("Invite email draft opened - send it from your email app, then confirm first login manually");
   };
 
   const handleDelete = async (userId, name) => {
@@ -210,7 +210,7 @@ export default function ManageUsers() {
                   Manage Users
                 </h1>
                 <p className="mt-1 max-w-3xl text-sm text-gray-600">
-                  Create staff logins, control roles, and maintain payroll export details before loading the full team.
+                  Create staff logins, control roles, and maintain payroll export details before loading the full team. Invite opens an email draft; acceptance/first login is not tracked yet, so confirm setup manually.
                 </p>
               </div>
             </div>
@@ -435,7 +435,7 @@ export default function ManageUsers() {
                             data-testid={`invite-user-${u.id}`}
                           >
                             <Mail className="mr-1 h-4 w-4" />
-                            Invite
+                            Open Invite Email
                           </Button>
                         <Button
                           variant="ghost"
