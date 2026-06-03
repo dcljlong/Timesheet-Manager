@@ -3041,3 +3041,122 @@ body {
   background-color: rgba(15, 23, 42, 0.96) !important;
   color: #f8fafc !important;
 }
+
+/* TIMESHEET MANAGER / MOBILE VIEWPORT LOCK V3
+   Final phone containment pass:
+   - removes 100vw shell sizing on mobile
+   - prevents horizontal page pan
+   - wraps mobile nav inside device width
+   - keeps stacked Timesheet day cards inside the viewport
+*/
+@media (max-width: 1023px) {
+  html,
+  body,
+  #root {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
+    overscroll-behavior-x: none !important;
+  }
+
+  html,
+  body {
+    position: relative !important;
+  }
+
+  .tm-app-shell,
+  .tm-shell-grid,
+  .tm-main-content,
+  .tm-top-nav,
+  .tm-top-nav-inner {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  .tm-top-nav {
+    left: 0 !important;
+    right: 0 !important;
+  }
+
+  .tm-top-nav-inner {
+    padding-left: 0.55rem !important;
+    padding-right: 0.55rem !important;
+    gap: 0.45rem !important;
+  }
+
+  .tm-nav-left {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .tm-brand-link {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    flex: 1 1 auto !important;
+  }
+
+  .tm-brand-copy {
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .tm-brand-title,
+  .tm-brand-subtitle,
+  .tm-brand-kicker {
+    max-width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .tm-nav-user {
+    flex: 0 0 auto !important;
+    gap: 0.35rem !important;
+  }
+
+  .tm-mobile-nav {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
+    overscroll-behavior-x: none !important;
+    flex-wrap: wrap !important;
+    justify-content: stretch !important;
+    box-sizing: border-box !important;
+    padding-left: 0.55rem !important;
+    padding-right: 0.55rem !important;
+  }
+
+  .tm-mobile-nav-link,
+  .tm-mobile-suite-link {
+    flex: 1 1 6.5rem !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    justify-content: center !important;
+    text-align: center !important;
+    white-space: normal !important;
+  }
+
+  [data-testid="timesheet-form"],
+  [data-testid="timesheet-form"] > form,
+  [data-testid="timesheet-mobile-grid"],
+  [data-testid="timesheet-mobile-totals"],
+  [data-testid^="mobile-day-card-"],
+  [data-testid^="mobile-entry-"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-time-button-row,
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-action-row {
+    grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr)) !important;
+  }
+}
+/* TIMESHEET MANAGER / MOBILE VIEWPORT LOCK V3 END */
