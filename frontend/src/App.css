@@ -2936,43 +2936,78 @@ body {
   }
 }
 
-/* TIMESHEET MANAGER / MOBILE DAY ENTRY CLARITY V1
-   Makes day labels clearer, removes redundant Showing helper text from JSX, and subtly colour-codes entry cards.
+/* TIMESHEET MANAGER / MOBILE DAY ENTRY CLARITY V2
+   Industry-standard mobile card hierarchy:
+   - neutral day and entry cards instead of loud pastel panels
+   - clear day title, day total, and line hierarchy
+   - preserves light/dark theme behaviour without forcing night mode
 */
 @media (max-width: 1023px) {
+  [data-testid^="mobile-day-card-"] {
+    padding: 0.875rem !important;
+    border: 1px solid rgba(148, 163, 184, 0.34) !important;
+    border-radius: 1rem !important;
+    background: #ffffff !important;
+    box-shadow: 0 10px 26px rgba(15, 23, 42, 0.07) !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-day-header {
+    gap: 0.65rem !important;
+    padding-bottom: 0.75rem !important;
+    margin-bottom: 0.75rem !important;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.22) !important;
+  }
+
   [data-testid="timesheet-mobile-grid"] .mobile-day-title {
-    font-size: 1.35rem !important;
+    font-size: 1.18rem !important;
     line-height: 1.15 !important;
-    letter-spacing: -0.02em !important;
-    color: #07111f !important;
+    letter-spacing: -0.015em !important;
+    color: #0f172a !important;
+    font-weight: 850 !important;
   }
 
-  [data-testid="timesheet-mobile-grid"] .mobile-entry-card {
-    border-width: 2px !important;
-    border-left-width: 0.45rem !important;
-  }
-
-  [data-testid="timesheet-mobile-grid"] .mobile-entry-card-1 {
-    background: #fffaf0 !important;
-    border-color: #f4c467 !important;
-  }
-
-  [data-testid="timesheet-mobile-grid"] .mobile-entry-card-2 {
-    background: #f0f7ff !important;
-    border-color: #7db5e8 !important;
-  }
-
-  [data-testid="timesheet-mobile-grid"] .mobile-entry-card-3 {
-    background: #f2fbf5 !important;
-    border-color: #82c995 !important;
-  }
-
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-card,
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-card-1,
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-card-2,
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-card-3,
   [data-testid="timesheet-mobile-grid"] .mobile-entry-card-4 {
-    background: #fff5f7 !important;
-    border-color: #ee9aad !important;
+    padding: 0.875rem !important;
+    border: 1px solid rgba(148, 163, 184, 0.34) !important;
+    border-left: 0.28rem solid #d9a441 !important;
+    border-radius: 0.95rem !important;
+    background: #ffffff !important;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06) !important;
   }
 
-  .dark [data-testid="timesheet-mobile-grid"] .mobile-day-title {
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-line-label {
+    color: #92400e !important;
+    font-size: 0.78rem !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.06em !important;
+  }
+
+  .dark [data-testid^="mobile-day-card-"],
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-entry-card,
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-entry-card-1,
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-entry-card-2,
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-entry-card-3,
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-entry-card-4 {
+    background: rgba(15, 23, 42, 0.96) !important;
+    border-color: rgba(217, 164, 65, 0.34) !important;
+    color: #f8fafc !important;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.22) !important;
+  }
+
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-entry-card,
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-entry-card-1,
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-entry-card-2,
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-entry-card-3,
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-entry-card-4 {
+    border-left-color: #d9a441 !important;
+  }
+
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-day-title,
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-entry-line-label {
     color: #f8fafc !important;
   }
 }
