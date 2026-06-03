@@ -80,6 +80,7 @@ export default function Layout({ children }) {
     },
   ];
 
+  const visibleSuiteLinks = user?.role === "admin" || user?.role === "project_manager" ? suiteLinks : [];
   const displayName = user?.name || user?.email || "Timesheet User";
   const roleLabel = (user?.role || "user").replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 
@@ -149,9 +150,9 @@ export default function Layout({ children }) {
                 );
               })}
 
-              <div className="tm-nav-divider" aria-hidden="true" />
+              {visibleSuiteLinks.length > 0 && <div className="tm-nav-divider" aria-hidden="true" />}
 
-              {suiteLinks.map((item) => (
+              {visibleSuiteLinks.map((item) => (
                 <a
                   key={item.href}
                   href={item.href}
@@ -222,7 +223,7 @@ export default function Layout({ children }) {
             );
           })}
 
-          {suiteLinks.map((item) => (
+          {visibleSuiteLinks.map((item) => (
             <a
               key={item.href}
               href={item.href}
@@ -265,30 +266,32 @@ export default function Layout({ children }) {
             })}
           </nav>
 
-          <div className="tm-rail-suite" aria-label="Long Line Suite apps">
-            <p className="tm-rail-section-title">Long Line Suite</p>
-            <div className="tm-rail-suite-links">
-              {suiteLinks.map((item) => {
-                const SuiteIcon = item.icon;
-                return (
-                  <a
-                    key={item.href}
-                    href={item.href}
-                    className="tm-rail-suite-link"
-                    title={item.description}
-                    data-testid={`rail-suite-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <span className="tm-suite-mini-mark" aria-hidden="true">
-                      <SuiteIcon className="w-4 h-4" />
-                    </span>
-                    <span className="tm-rail-suite-link-label">{item.label}</span>
-                  </a>
-                );
-              })}
+          {visibleSuiteLinks.length > 0 && (
+            <div className="tm-rail-suite" aria-label="Long Line Suite apps">
+              <p className="tm-rail-section-title">Long Line Suite</p>
+              <div className="tm-rail-suite-links">
+                {visibleSuiteLinks.map((item) => {
+                  const SuiteIcon = item.icon;
+                  return (
+                    <a
+                      key={item.href}
+                      href={item.href}
+                      className="tm-rail-suite-link"
+                      title={item.description}
+                      data-testid={`rail-suite-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <span className="tm-suite-mini-mark" aria-hidden="true">
+                        <SuiteIcon className="w-4 h-4" />
+                      </span>
+                      <span className="tm-rail-suite-link-label">{item.label}</span>
+                    </a>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="tm-rail-account" aria-label="Timesheet Manager account controls">
             <p className="tm-rail-section-title">Account</p>
