@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth, API } from "../App";
 import axios from "axios";
@@ -9,6 +9,7 @@ import Layout from "../components/Layout";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const timesheetReviewRef = useRef(null);
   const [timesheets, setTimesheets] = useState([]);
   const [stats, setStats] = useState({
     total: 0,
@@ -65,6 +66,13 @@ export default function AdminDashboard() {
 
     return matchesStatus && matchesWeek;
   });
+
+  const handleDashboardStatusClick = (nextFilter) => {
+    setFilter(nextFilter);
+    window.requestAnimationFrame(() => {
+      timesheetReviewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
   const handleExport = async () => {
     try {
       const params = new URLSearchParams();
@@ -202,7 +210,7 @@ export default function AdminDashboard() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-          <div className="card p-4 cursor-pointer hover:shadow-md transition-shadow" data-testid="stat-total" onClick={() => setFilter("all")}>
+          <div className="card p-4 cursor-pointer hover:shadow-md transition-shadow" data-testid="stat-total" onClick={() => handleDashboardStatusClick("all")}>
             <div className="flex items-center">
               <div className="p-2 bg-gray-100 rounded">
                 <FileText className="w-4 h-4 text-gray-700" />
@@ -214,7 +222,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="card p-4 cursor-pointer hover:shadow-md transition-shadow" data-testid="stat-pending-pm" onClick={() => setFilter("pending_pm")}>
+          <div className="card p-4 cursor-pointer hover:shadow-md transition-shadow" data-testid="stat-pending-pm" onClick={() => handleDashboardStatusClick("pending_pm")}>
             <div className="flex items-center">
               <div className="p-2 bg-yellow-100 rounded">
                 <Clock className="w-4 h-4 text-yellow-700" />
@@ -226,7 +234,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="card p-4 cursor-pointer hover:shadow-md transition-shadow" data-testid="stat-pending-admin" onClick={() => setFilter("pending_admin")}>
+          <div className="card p-4 cursor-pointer hover:shadow-md transition-shadow" data-testid="stat-pending-admin" onClick={() => handleDashboardStatusClick("pending_admin")}>
             <div className="flex items-center">
               <div className="p-2 bg-blue-100 rounded">
                 <Clock className="w-4 h-4 text-blue-700" />
@@ -238,7 +246,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="card p-4 cursor-pointer hover:shadow-md transition-shadow" data-testid="stat-approved" onClick={() => setFilter("approved")}>
+          <div className="card p-4 cursor-pointer hover:shadow-md transition-shadow" data-testid="stat-approved" onClick={() => handleDashboardStatusClick("approved")}>
             <div className="flex items-center">
               <div className="p-2 bg-green-100 rounded">
                 <CheckCircle className="w-4 h-4 text-green-700" />
@@ -250,7 +258,7 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="card p-4 cursor-pointer hover:shadow-md transition-shadow" data-testid="stat-rejected" onClick={() => setFilter("rejected")}>
+          <div className="card p-4 cursor-pointer hover:shadow-md transition-shadow" data-testid="stat-rejected" onClick={() => handleDashboardStatusClick("rejected")}>
             <div className="flex items-center">
               <div className="p-2 bg-red-100 rounded">
                 <XCircle className="w-4 h-4 text-red-700" />
@@ -457,13 +465,13 @@ export default function AdminDashboard() {
           </div>
 
         {/* Filter Tabs */}
-        <div className="flex flex-wrap gap-2 mb-4">
+        <div className="flex flex-wrap gap-2 mb-4" ref={timesheetReviewRef} data-testid="admin-review-filter-tabs">
           {[
-            { key: "all", label: "All" },
+            { key: "all", label: "Total" },
             { key: "pending_pm", label: "Pending PM" },
             { key: "pending_admin", label: "Pending Admin" },
             { key: "approved", label: "Approved" },
-            { key: "rejected", label: "Not Approved" }
+            { key: "rejected", label: "Rejected" }
           ].map(f => (
             <Button
               key={f.key}
@@ -480,13 +488,13 @@ export default function AdminDashboard() {
         {/* Timesheets List */}
         <div className="card" data-testid="admin-timesheets-list">
           <div className="p-4 border-b border-gray-200">
-            <h2 className="font-semibold text-gray-900">{filter === "all" ? "All Timesheets" : filter === "pending_pm" ? "Pending PM Approval" : filter === "pending_admin" ? "Pending Admin Approval" : filter === "approved" ? "Approved Timesheets" : "Not Approved Timesheets"}</h2>
+            <h2 className="font-semibold text-gray-900">{filter === "all" ? "Total Timesheets" : filter === "pending_pm" ? "Pending PM Approval" : filter === "pending_admin" ? "Pending Admin Approval" : filter === "approved" ? "Approved Timesheets" : "Rejected Timesheets"}</h2>
           </div>
 
           {filteredTimesheets.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
               <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-              <p>{filter === "all" ? "No timesheets found" : filter === "pending_pm" ? "No timesheets pending PM approval" : filter === "pending_admin" ? "No timesheets pending admin approval" : filter === "approved" ? "No approved timesheets found" : "No not approved timesheets found"}</p>
+              <p>{filter === "all" ? "No timesheets found" : filter === "pending_pm" ? "No timesheets pending PM approval" : filter === "pending_admin" ? "No timesheets pending admin approval" : filter === "approved" ? "No approved timesheets found" : "No rejected timesheets found"}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
