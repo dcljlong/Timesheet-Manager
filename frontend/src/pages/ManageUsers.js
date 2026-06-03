@@ -236,6 +236,9 @@ export default function ManageUsers() {
               <p className="text-sm text-gray-500">
                 Create an admin-controlled login. Public registration remains disabled.
               </p>
+              <p className="mt-1 text-xs font-medium text-amber-700">
+                After creating a user, use Open Invite Email in the Actions column to send their setup email.
+              </p>
             </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -338,7 +341,7 @@ export default function ManageUsers() {
                       <th>Costing Mode</th>
                       <th>Std Hours</th>
                     <th>Created</th>
-                    <th>Actions</th>
+                    <th>Payroll / Invite / Remove</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -416,37 +419,50 @@ export default function ManageUsers() {
                       <td className="text-gray-500">
                         {u.created_at ? format(new Date(u.created_at), "d MMM yyyy") : "-"}
                       </td>
-                      <td>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleSavePayrollSettings(u.id)}
-                            disabled={savingPayrollUserId === u.id}
-                            className="mr-2"
-                          >
-                            {savingPayrollUserId === u.id ? "Saving..." : "Save Payroll"}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleInviteUser(u)}
-                            className="mr-2"
-                            data-testid={`invite-user-${u.id}`}
-                          >
-                            <Mail className="mr-1 h-4 w-4" />
-                            Open Invite Email
-                          </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(u.id, u.name)}
-                          className="text-red-500 hover:text-red-700"
-                          disabled={u.id === currentUser?.id}
-                          data-testid={`delete-user-${u.id}`}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                      <td className="min-w-[240px]">
+                        <div className="flex flex-col gap-2" data-testid={`user-action-group-${u.id}`}>
+                          <div>
+                            <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-gray-500">Payroll</p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleSavePayrollSettings(u.id)}
+                              disabled={savingPayrollUserId === u.id}
+                              className="w-full justify-center border-gray-300 text-gray-700 hover:bg-gray-50"
+                              data-testid={`save-payroll-${u.id}`}
+                            >
+                              {savingPayrollUserId === u.id ? "Saving..." : "Save Payroll"}
+                            </Button>
+                          </div>
+                          <div>
+                            <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-blue-700">Invite</p>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleInviteUser(u)}
+                              className="w-full justify-center border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100"
+                              data-testid={`invite-user-${u.id}`}
+                            >
+                              <Mail className="mr-1 h-4 w-4" />
+                              Open Invite Email
+                            </Button>
+                          </div>
+                          <div>
+                            <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-red-600">Remove</p>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDelete(u.id, u.name)}
+                              className="w-full justify-center text-red-500 hover:bg-red-50 hover:text-red-700"
+                              disabled={u.id === currentUser?.id}
+                              data-testid={`delete-user-${u.id}`}
+                            >
+                              <Trash2 className="mr-1 h-4 w-4" />
+                              Delete User
+                            </Button>
+                          </div>
+                        </div>
                       </td>
                     </tr>
                   ))}
