@@ -368,12 +368,169 @@ async def refresh_token(request: Request, response: Response):
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
+# TIMESHEET / FITOUTOS TASK CODE SYNC V1
+class TaskCodeSyncItem(BaseModel):
+    code: str
+    name: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    smartly_department_quick_code: Optional[str] = None
+    smartly_export_enabled: Optional[bool] = None
+
+
+class TaskCodeSyncRequest(BaseModel):
+    source: str = "fitoutos"
+    dry_run: bool = True
+    codes: List[TaskCodeSyncItem]
+
+
 # ==================== TASK CODES ENDPOINTS ====================
 
 @api_router.get("/task-codes", response_model=List[TaskCodeResponse])
 async def get_task_codes():
     codes = await db.task_codes.find({}, {"_id": 1, "code": 1, "description": 1, "smartly_department_quick_code": 1, "smartly_export_enabled": 1}).to_list(1000)
     return [{"id": str(c["_id"]), "code": c["code"], "description": c["description"], "smartly_department_quick_code": c.get("smartly_department_quick_code", ""), "smartly_export_enabled": c.get("smartly_export_enabled", True)} for c in codes]
+
+# TIMESHEET / FITOUTOS TASK CODE SYNC V1
+def clean_task_code_sync_text(value):
+    if value is None:
+        return ""
+    try:
+        return str(value).strip()
+    except Exception:
+        return ""
+
+
+@api_router.post("/task-codes/sync-from-fitoutos")
+async def sync_task_codes_from_fitoutos(data: TaskCodeSyncRequest, request: Request):
+    expected_token = (os.environ.get("FITOUTOS_TASK_CODE_SYNC_TOKEN") or "").strip()
+    provided_token = (request.headers.get("X-FitoutOS-Sync-Token") or "").strip()
+
+    if not expected_token:
+        raise HTTPException(status_code=503, detail="FitoutOS task code sync token is not configured")
+
+    if provided_token != expected_token:
+        raise HTTPException(status_code=403, detail="Invalid FitoutOS task code sync token")
+
+    if len(data.codes) > 1000:
+        raise HTTPException(status_code=400, detail="Maximum 1000 task codes per sync")
+
+    source_label = clean_task_code_sync_text(data.source) or "fitoutos"
+    now = datetime.now(timezone.utc).isoformat()
+
+    created = 0
+    updated = 0
+    unchanged = 0
+    skipped = 0
+    issues = []
+    preview = []
+    seen_codes = set()
+
+    for index, item in enumerate(data.codes):
+        code = clean_task_code_sync_text(item.code)
+        code_key = code.upper()
+
+        if not code:
+            skipped += 1
+            issues.append({
+                "index": index,
+                "reason": "Missing code"
+            })
+            continue
+
+        if code_key in seen_codes:
+            skipped += 1
+            issues.append({
+                "index": index,
+                "code": code,
+                "reason": "Duplicate code in sync payload"
+            })
+            continue
+
+        seen_codes.add(code_key)
+
+        description = (
+            clean_task_code_sync_text(item.description)
+            or clean_task_code_sync_text(item.name)
+            or code
+        )
+
+        existing = await db.task_codes.find_one({"code": code})
+
+        if existing:
+            update_fields = {}
+
+            if clean_task_code_sync_text(existing.get("description")) != description:
+                update_fields["description"] = description
+
+            if item.smartly_department_quick_code is not None:
+                incoming_quick_code = clean_task_code_sync_text(item.smartly_department_quick_code)
+                if clean_task_code_sync_text(existing.get("smartly_department_quick_code")) != incoming_quick_code:
+                    update_fields["smartly_department_quick_code"] = incoming_quick_code
+
+            if item.smartly_export_enabled is not None:
+                incoming_export_enabled = bool(item.smartly_export_enabled)
+                if bool(existing.get("smartly_export_enabled", True)) != incoming_export_enabled:
+                    update_fields["smartly_export_enabled"] = incoming_export_enabled
+
+            if update_fields:
+                update_fields["updated_from_fitoutos_at"] = now
+                update_fields["updated_from_fitoutos_source"] = source_label
+
+                if not data.dry_run:
+                    await db.task_codes.update_one(
+                        {"_id": existing["_id"]},
+                        {"$set": update_fields}
+                    )
+
+                updated += 1
+                action = "update"
+            else:
+                unchanged += 1
+                action = "unchanged"
+
+            preview.append({
+                "code": code,
+                "description": description,
+                "action": action
+            })
+            continue
+
+        new_doc = {
+            "code": code,
+            "description": description,
+            "smartly_department_quick_code": clean_task_code_sync_text(item.smartly_department_quick_code),
+            "smartly_export_enabled": bool(item.smartly_export_enabled) if item.smartly_export_enabled is not None else False,
+            "created_by": "fitoutos-sync",
+            "created_at": datetime.now(timezone.utc),
+            "created_from_fitoutos_at": now,
+            "created_from_fitoutos_source": source_label
+        }
+
+        if not data.dry_run:
+            await db.task_codes.insert_one(new_doc)
+
+        created += 1
+        preview.append({
+            "code": code,
+            "description": description,
+            "action": "create",
+            "smartly_export_enabled": new_doc["smartly_export_enabled"]
+        })
+
+    return {
+        "source": source_label,
+        "dry_run": data.dry_run,
+        "received": len(data.codes),
+        "created": created,
+        "updated": updated,
+        "unchanged": unchanged,
+        "skipped": skipped,
+        "new_codes_default_smartly_export_enabled": False,
+        "issues": issues[:100],
+        "preview": preview[:200]
+    }
+
 
 @api_router.post("/task-codes", response_model=TaskCodeResponse)
 async def create_task_code(task_code: TaskCodeCreate, request: Request):
