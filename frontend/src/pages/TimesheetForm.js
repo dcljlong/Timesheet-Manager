@@ -181,6 +181,8 @@ export default function TimesheetForm() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [taskCodes, setTaskCodes] = useState([]);
+  // TIMESHEET / JOB-SPECIFIC TASK CODE FILTER V1
+  const [taskCodesByJob, setTaskCodesByJob] = useState({});
   const [jobNumbers, setJobNumbers] = useState([]);
   const [projectManagers, setPMs] = useState([]);
   const [defaults, setDefaults] = useState(() => readMobileTimeDefaults());
@@ -262,6 +264,25 @@ export default function TimesheetForm() {
     return dayLabel === "Friday" ? 8 : 9;
   };
 
+  // TIMESHEET / JOB-SPECIFIC TASK CODE FILTER V1
+  const normaliseTaskCodeValue = (value) => String(value || "").trim().toUpperCase();
+
+  const getTaskCodesForJob = (jobNumber) => {
+    const cleanJobNumber = String(jobNumber || "").trim();
+    if (!cleanJobNumber) return [];
+
+    const mappedOptions =
+      taskCodesByJob[cleanJobNumber] ||
+      taskCodesByJob[cleanJobNumber.toUpperCase()] ||
+      [];
+
+    return Array.isArray(mappedOptions) && mappedOptions.length > 0
+      ? mappedOptions
+      : taskCodes;
+  };
+
+  const getTaskCodesForEntry = (entry) => getTaskCodesForJob(entry?.job_number);
+
 const updateEntry = (dayIndex, entryIndex, field, value) => {
   setDays(prev => {
     const copy = [...prev];
@@ -273,6 +294,19 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
 
     entry[field] = field === "type" ? normaliseEntryType(value) : value;
 
+    // TIMESHEET / JOB-SPECIFIC TASK CODE FILTER V1
+    if (field === "job_number" && !isLeaveType(entry.type)) {
+      const nextTaskOptions = getTaskCodesForJob(value);
+      const currentTaskCode = normaliseTaskCodeValue(entry.task_code);
+      const isCurrentTaskValid =
+        !currentTaskCode ||
+        !nextTaskOptions.length ||
+        nextTaskOptions.some((tc) => normaliseTaskCodeValue(tc.code || tc.value) === currentTaskCode);
+
+      if (!isCurrentTaskValid) {
+        entry.task_code = "";
+      }
+    }
     if (field === "description") {
       entry.other = value;
     }
@@ -911,15 +945,22 @@ const handleSubmit = async (e) => {
           setLoading(true);
         }
 
-        const [codesRes, pmRes, jobsRes] = await Promise.all([
+        const [codesRes, pmRes, jobsRes, referenceRes] = await Promise.all([
           axios.get(`${API}/task-codes`),
           axios.get(`${API}/project-managers`),
-          axios.get(`${API}/job-numbers`)
+          axios.get(`${API}/job-numbers`),
+          axios.get(`${API}/timesheets/reference-options`, { withCredentials: true }).catch((err) => {
+            console.warn("Reference options mapping refresh failed", err);
+            return { data: {} };
+          })
         ]);
 
         if (!isMounted) return;
 
-        setTaskCodes(codesRes.data || []);
+        const referenceData = referenceRes.data || {};
+        setTaskCodes(codesRes.data || referenceData.task_codes || []);
+        // TIMESHEET / JOB-SPECIFIC TASK CODE FILTER V1
+        setTaskCodesByJob(referenceData.task_codes_by_job || {});
         setJobNumbers((jobsRes.data || []).filter((job) => job.active !== false));
         setPMs(pmRes.data || []);
       } catch (err) {
@@ -1264,14 +1305,14 @@ const handleSubmit = async (e) => {
                           <Label className="text-[11px]">Task</Label>
                           <Select
                             value={entry.task_code || ""}
-                            disabled={isLeaveType(entry.type)}
+                            disabled={isLeaveType(entry.type) || !entry.job_number}
                             onValueChange={(v) => updateEntry(dayIndex, entryIndex, "task_code", v)}
                           >
                             <SelectTrigger className="mobile-entry-field mt-1 h-12 w-full text-base font-bold">
                               <SelectValue placeholder="Select Task" />
                             </SelectTrigger>
                             <SelectContent>
-                              {taskCodes.map((tc) => (
+                              {getTaskCodesForEntry(entry).map((tc) => (
                                 <SelectItem key={tc.id} value={tc.code}>
                                   {tc.code} - {tc.description}
                                 </SelectItem>
@@ -1498,14 +1539,14 @@ const handleSubmit = async (e) => {
             <td className="p-1">
               <Select
                 value={entry.task_code || ""}
-                disabled={isLeaveType(entry.type)}
+                disabled={isLeaveType(entry.type) || !entry.job_number}
                 onValueChange={(v) => updateEntry(dayIndex, entryIndex, "task_code", v)}
               >
                 <SelectTrigger className="w-24 text-[11px] px-1 py-0.5">
                   <SelectValue placeholder="Select Task" />
                 </SelectTrigger>
                 <SelectContent>
-                  {taskCodes.map((tc) => (
+                  {getTaskCodesForEntry(entry).map((tc) => (
                     <SelectItem key={tc.id} value={tc.code}>
                       {tc.code} - {tc.description}
                     </SelectItem>

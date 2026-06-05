@@ -378,10 +378,18 @@ class TaskCodeSyncItem(BaseModel):
     smartly_export_enabled: Optional[bool] = None
 
 
+class JobTaskCodeSyncItem(BaseModel):
+    job_number: str
+    code: Optional[str] = None
+    task_code: Optional[str] = None
+    description: Optional[str] = None
+    active: Optional[bool] = True
+
 class TaskCodeSyncRequest(BaseModel):
     source: str = "fitoutos"
     dry_run: bool = True
     codes: List[TaskCodeSyncItem]
+    job_task_codes: Optional[List[JobTaskCodeSyncItem]] = None
 
 
 # ==================== TASK CODES ENDPOINTS ====================
@@ -518,6 +526,105 @@ async def sync_task_codes_from_fitoutos(data: TaskCodeSyncRequest, request: Requ
             "smartly_export_enabled": new_doc["smartly_export_enabled"]
         })
 
+    # TIMESHEET / JOB-SPECIFIC TASK CODE FILTER V1
+    job_mapping_created = 0
+    job_mapping_updated = 0
+    job_mapping_unchanged = 0
+    job_mapping_skipped = 0
+    job_mapping_preview = []
+    seen_job_code_pairs = set()
+    job_task_code_items = data.job_task_codes or []
+
+    if len(job_task_code_items) > 3000:
+        raise HTTPException(status_code=400, detail="Maximum 3000 job/task code mappings per sync")
+
+    for index, item in enumerate(job_task_code_items):
+        job_number = clean_task_code_sync_text(item.job_number)
+        code = clean_task_code_sync_text(item.code or item.task_code)
+        code_key = code.upper()
+        job_key = job_number.upper()
+        pair_key = f"{job_key}:{code_key}"
+
+        if not job_number or not code:
+            job_mapping_skipped += 1
+            issues.append({
+                "index": index,
+                "job_number": job_number,
+                "code": code,
+                "reason": "Missing job_number or code in job task mapping"
+            })
+            continue
+
+        if pair_key in seen_job_code_pairs:
+            job_mapping_skipped += 1
+            issues.append({
+                "index": index,
+                "job_number": job_number,
+                "code": code,
+                "reason": "Duplicate job/task mapping in sync payload"
+            })
+            continue
+
+        seen_job_code_pairs.add(pair_key)
+
+        description = clean_task_code_sync_text(item.description)
+        active = bool(item.active) if item.active is not None else True
+
+        existing_mapping = await db.job_task_code_mappings.find_one({
+            "job_number": job_number,
+            "code": code
+        })
+
+        if existing_mapping:
+            update_fields = {}
+
+            if clean_task_code_sync_text(existing_mapping.get("description")) != description:
+                update_fields["description"] = description
+
+            if bool(existing_mapping.get("active", True)) != active:
+                update_fields["active"] = active
+
+            if update_fields:
+                update_fields["updated_from_fitoutos_at"] = now
+                update_fields["updated_from_fitoutos_source"] = source_label
+
+                if not data.dry_run:
+                    await db.job_task_code_mappings.update_one(
+                        {"_id": existing_mapping["_id"]},
+                        {"$set": update_fields}
+                    )
+
+                job_mapping_updated += 1
+                action = "update"
+            else:
+                job_mapping_unchanged += 1
+                action = "unchanged"
+        else:
+            new_mapping_doc = {
+                "job_number": job_number,
+                "code": code,
+                "description": description,
+                "active": active,
+                "created_by": "fitoutos-sync",
+                "created_at": datetime.now(timezone.utc),
+                "created_from_fitoutos_at": now,
+                "created_from_fitoutos_source": source_label
+            }
+
+            if not data.dry_run:
+                await db.job_task_code_mappings.insert_one(new_mapping_doc)
+
+            job_mapping_created += 1
+            action = "create"
+
+        job_mapping_preview.append({
+            "job_number": job_number,
+            "code": code,
+            "description": description,
+            "active": active,
+            "action": action
+        })
+
     return {
         "source": source_label,
         "dry_run": data.dry_run,
@@ -527,6 +634,11 @@ async def sync_task_codes_from_fitoutos(data: TaskCodeSyncRequest, request: Requ
         "unchanged": unchanged,
         "skipped": skipped,
         "new_codes_default_smartly_export_enabled": False,
+        "job_mapping_created": job_mapping_created,
+        "job_mapping_updated": job_mapping_updated,
+        "job_mapping_unchanged": job_mapping_unchanged,
+        "job_mapping_skipped": job_mapping_skipped,
+        "job_mapping_preview": job_mapping_preview[:200],
         "issues": issues[:100],
         "preview": preview[:200]
     }
@@ -1939,6 +2051,9 @@ async def get_timesheet_reference_options(request: Request):
     employee_options = []
     pm_options = []
     task_code_options = []
+    # TIMESHEET / JOB-SPECIFIC TASK CODE FILTER V1
+    task_code_by_code = {}
+    task_codes_by_job = {}
     source_warnings = []
 
     try:
@@ -2014,7 +2129,7 @@ async def get_timesheet_reference_options(request: Request):
         for code in task_codes:
             task_code = as_text(code.get("code"))
             description = as_text(code.get("description"))
-            task_code_options.append({
+            option = {
                 "id": str(code.get("_id", "")),
                 "code": task_code,
                 "description": description,
@@ -2022,9 +2137,54 @@ async def get_timesheet_reference_options(request: Request):
                 "smartly_export_enabled": as_bool(code.get("smartly_export_enabled"), True),
                 "label": make_label(task_code, description) or task_code,
                 "value": task_code
-            })
+            }
+            task_code_options.append(option)
+            if task_code:
+                task_code_by_code[task_code.upper()] = option
     except Exception as exc:
         source_warnings.append(f"task_codes unavailable: {str(exc)}")
+
+    # TIMESHEET / JOB-SPECIFIC TASK CODE FILTER V1
+    try:
+        job_task_mappings = await db.job_task_code_mappings.find(
+            {"active": {"$ne": False}},
+            {
+                "_id": 1,
+                "job_number": 1,
+                "code": 1,
+                "description": 1,
+                "active": 1
+            }
+        ).to_list(5000)
+
+        for mapping in job_task_mappings:
+            job_number = as_text(mapping.get("job_number"))
+            task_code = as_text(mapping.get("code"))
+            if not job_number or not task_code:
+                continue
+
+            source_option = task_code_by_code.get(task_code.upper(), {})
+            description = as_text(mapping.get("description")) or as_text(source_option.get("description"))
+            option = {
+                "id": str(mapping.get("_id", "")),
+                "job_number": job_number,
+                "code": task_code,
+                "description": description,
+                "smartly_department_quick_code": as_text(source_option.get("smartly_department_quick_code")),
+                "smartly_export_enabled": as_bool(source_option.get("smartly_export_enabled"), True),
+                "label": make_label(task_code, description) or task_code,
+                "value": task_code
+            }
+
+            task_codes_by_job.setdefault(job_number, []).append(option)
+            job_number_upper = job_number.upper()
+            if job_number_upper != job_number:
+                task_codes_by_job.setdefault(job_number_upper, []).append(option)
+    except Exception as exc:
+        source_warnings.append(f"job_task_code_mappings unavailable: {str(exc)}")
+
+    for job_number in list(task_codes_by_job.keys()):
+        task_codes_by_job[job_number].sort(key=lambda row: (row.get("code") or "").lower())
 
     employee_options.sort(key=lambda row: ((row.get("name") or "").lower(), (row.get("email") or "").lower()))
     pm_options.sort(key=lambda row: ((row.get("name") or "").lower(), (row.get("initials") or "").lower()))
@@ -2066,10 +2226,12 @@ async def get_timesheet_reference_options(request: Request):
         "employees": employee_options,
         "project_managers": pm_options,
         "task_codes": task_code_options,
+        "task_codes_by_job": task_codes_by_job,
         "counts": {
             "employees": len(employee_options),
             "project_managers": len(pm_options),
-            "task_codes": len(task_code_options)
+            "task_codes": len(task_code_options),
+            "job_task_code_mappings": sum(len(items) for items in task_codes_by_job.values())
         },
         "source_warnings": source_warnings,
         "honest_status": {
@@ -2716,6 +2878,8 @@ async def startup_event():
     # Create indexes
     await db.users.create_index("email", unique=True)
     await db.task_codes.create_index("code", unique=True)
+    # TIMESHEET / JOB-SPECIFIC TASK CODE FILTER V1
+    await db.job_task_code_mappings.create_index([("job_number", 1), ("code", 1)], unique=True)
     await db.project_managers.create_index("initials", unique=True)
     await db.job_numbers.create_index("job_number", unique=True)
     await db.login_attempts.create_index("identifier")
