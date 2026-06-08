@@ -97,12 +97,53 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, [checkAuth]);
 
+  // TIMESHEET / LOGIN FETCH FALLBACK V1
   const login = async (email, password) => {
-    const { data } = await api.post("/auth/login", { email, password });
+    let data = null;
+    let axiosError = null;
 
-    if (data?.access_token) {
-      applyAuthToken(data.access_token);
+    try {
+      const response = await api.post("/auth/login", { email, password });
+      data = response.data;
+    } catch (err) {
+      axiosError = err;
     }
+
+    if (!data?.access_token) {
+      try {
+        const response = await fetch(API_BASE_URL + "/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ email, password }),
+        });
+
+        const responseText = await response.text();
+        let parsed = null;
+
+        try {
+          parsed = responseText ? JSON.parse(responseText) : null;
+        } catch {
+          parsed = { detail: responseText || "Login failed" };
+        }
+
+        if (!response.ok) {
+          const fallbackError = new Error(parsed?.detail || `Login failed with status ${response.status}`);
+          fallbackError.response = { status: response.status, data: parsed };
+          throw fallbackError;
+        }
+
+        data = parsed;
+      } catch (fetchError) {
+        throw axiosError || fetchError;
+      }
+    }
+
+    if (!data?.access_token) {
+      throw new Error("Login succeeded but no access token was returned.");
+    }
+
+    applyAuthToken(data.access_token);
 
     const loginUser = data?.user || data;
 

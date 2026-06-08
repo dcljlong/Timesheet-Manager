@@ -2044,8 +2044,52 @@ async def get_timesheet_reference_options(request: Request):
         except Exception:
             return fallback
 
+    # TIMESHEET / CLEAN TASK CODE LABELS V1
+    def clean_reference_label_text(value):
+        text = as_text(value)
+        if not text:
+            return ""
+        replacements = {
+            "â€“": "-",
+            "â€”": "-",
+            "–": "-",
+            "—": "-",
+            "â€™": "'",
+            "â€˜": "'",
+            "â€œ": '"',
+            "â€": '"',
+            "Â": ""
+        }
+        for bad, good in replacements.items():
+            text = text.replace(bad, good)
+        text = " ".join(text.split())
+        return text.strip(" -")
+
+    def strip_task_code_prefix(task_code, description):
+        code = clean_reference_label_text(task_code)
+        desc = clean_reference_label_text(description)
+        if code and desc:
+            desc_lower = desc.lower()
+            code_lower = code.lower()
+            if desc_lower == code_lower:
+                return ""
+            if desc_lower.startswith(code_lower + " -"):
+                return desc[len(code):].strip(" -")
+            if desc_lower.startswith(code_lower + "-"):
+                return desc[len(code):].strip(" -")
+            if desc_lower.startswith(code_lower + " "):
+                return desc[len(code):].strip(" -")
+        return desc
+
+    def make_task_code_label(task_code, description):
+        code = clean_reference_label_text(task_code)
+        desc = strip_task_code_prefix(task_code, description)
+        if code and desc:
+            return f"{code} - {desc}"
+        return code or desc
+
     def make_label(*parts):
-        clean_parts = [as_text(part) for part in parts if as_text(part)]
+        clean_parts = [clean_reference_label_text(part) for part in parts if clean_reference_label_text(part)]
         return " - ".join(clean_parts)
 
     employee_options = []
@@ -2053,6 +2097,7 @@ async def get_timesheet_reference_options(request: Request):
     task_code_options = []
     # TIMESHEET / JOB-SPECIFIC TASK CODE FILTER V1
     task_code_by_code = {}
+    # TIMESHEET / CLEAN TASK CODE DESCRIPTION VALUES V1
     task_codes_by_job = {}
     source_warnings = []
 
@@ -2132,10 +2177,10 @@ async def get_timesheet_reference_options(request: Request):
             option = {
                 "id": str(code.get("_id", "")),
                 "code": task_code,
-                "description": description,
+                "description": strip_task_code_prefix(task_code, description),
                 "smartly_department_quick_code": as_text(code.get("smartly_department_quick_code")),
                 "smartly_export_enabled": as_bool(code.get("smartly_export_enabled"), True),
-                "label": make_label(task_code, description) or task_code,
+                "label": make_task_code_label(task_code, description) or task_code,
                 "value": task_code
             }
             task_code_options.append(option)
@@ -2169,10 +2214,10 @@ async def get_timesheet_reference_options(request: Request):
                 "id": str(mapping.get("_id", "")),
                 "job_number": job_number,
                 "code": task_code,
-                "description": description,
+                "description": strip_task_code_prefix(task_code, description),
                 "smartly_department_quick_code": as_text(source_option.get("smartly_department_quick_code")),
                 "smartly_export_enabled": as_bool(source_option.get("smartly_export_enabled"), True),
-                "label": make_label(task_code, description) or task_code,
+                "label": make_task_code_label(task_code, description) or task_code,
                 "value": task_code
             }
 

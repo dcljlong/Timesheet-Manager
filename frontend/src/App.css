@@ -3266,3 +3266,145 @@ body {
   }
 }
 /* TIMESHEET MANAGER / MOBILE STAFF USE DENSITY V1 END */
+
+/* TIMESHEET / ENTRY FIELD CONTRAST V1 */
+.timesheet-mobile-card,
+.timesheet-entry-card,
+.mobile-timesheet-entry {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.96));
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+.mobile-entry-field,
+.timesheet-entry-field,
+.timesheet-select-field {
+  background: #ffffff !important;
+  border: 1px solid rgba(15, 23, 42, 0.22) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.85), 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.mobile-entry-field:focus,
+.mobile-entry-field:focus-visible,
+.timesheet-entry-field:focus,
+.timesheet-entry-field:focus-visible,
+.timesheet-select-field:focus,
+.timesheet-select-field:focus-visible {
+  border-color: rgba(180, 126, 24, 0.75) !important;
+  box-shadow: 0 0 0 3px rgba(245, 190, 80, 0.22) !important;
+}
+
+.mobile-entry-field[disabled],
+.timesheet-entry-field[disabled],
+.timesheet-select-field[disabled] {
+  background: rgba(226, 232, 240, 0.72) !important;
+  color: rgba(71, 85, 105, 0.85) !important;
+}
+
+.dark .timesheet-mobile-card,
+.dark .timesheet-entry-card,
+.dark .mobile-timesheet-entry {
+  border-color: rgba(245, 190, 80, 0.22);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(8, 14, 28, 0.96));
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.32);
+}
+
+.dark .mobile-entry-field,
+.dark .timesheet-entry-field,
+.dark .timesheet-select-field {
+  background: rgba(8, 14, 28, 0.98) !important;
+  border-color: rgba(245, 190, 80, 0.28) !important;
+  color: rgba(248, 250, 252, 0.94) !important;
+}
+/* TIMESHEET / FIELD DIFFERENTIATION UX V2 */
+[data-testid="timesheet-mobile-grid"] {
+  gap: 0.9rem;
+}
+
+[data-testid="timesheet-mobile-grid"] .mobile-timesheet-entry {
+  position: relative;
+  padding: 1rem;
+  border-left: 5px solid rgba(180, 126, 24, 0.55);
+}
+
+[data-testid="timesheet-mobile-grid"] .mobile-timesheet-entry:nth-child(odd) {
+  background: linear-gradient(180deg, rgba(255,255,255,0.99), rgba(248,250,252,0.98));
+}
+
+[data-testid="timesheet-mobile-grid"] .mobile-timesheet-entry:nth-child(even) {
+  background: linear-gradient(180deg, rgba(250,252,255,0.99), rgba(241,245,249,0.98));
+}
+
+[data-testid="timesheet-mobile-grid"] label,
+.timesheet-entry-card label,
+.timesheet-mobile-card label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.32rem;
+  font-size: 0.73rem;
+  font-weight: 800;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+  color: rgba(51, 65, 85, 0.92);
+}
+
+[data-testid="timesheet-mobile-grid"] .mobile-entry-field,
+.timesheet-entry-field,
+.timesheet-select-field {
+  min-height: 2.75rem;
+  border-radius: 0.85rem !important;
+}
+
+[data-testid="timesheet-mobile-grid"] .mobile-entry-field:hover,
+.timesheet-entry-field:hover,
+.timesheet-select-field:hover {
+  border-color: rgba(180, 126, 24, 0.42) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+[data-testid="timesheet-mobile-grid"] select.mobile-entry-field,
+[data-testid="timesheet-mobile-grid"] button.mobile-entry-field,
+.timesheet-select-field {
+  background-image: linear-gradient(180deg, #ffffff, #f8fafc) !important;
+  font-weight: 700;
+}
+
+[data-testid="timesheet-mobile-grid"] textarea.mobile-entry-field,
+.timesheet-entry-field textarea {
+  min-height: 4.5rem;
+  line-height: 1.45;
+}
+
+[data-testid="timesheet-mobile-grid"] .mobile-entry-field::placeholder,
+.timesheet-entry-field::placeholder {
+  color: rgba(100, 116, 139, 0.68);
+}
+
+[data-testid="timesheet-mobile-grid"] .mobile-timesheet-entry + .mobile-timesheet-entry {
+  margin-top: 0.25rem;
+}
+
+.dark [data-testid="timesheet-mobile-grid"] .mobile-timesheet-entry {
+  border-left-color: rgba(245, 190, 80, 0.62);
+}
+
+.dark [data-testid="timesheet-mobile-grid"] .mobile-timesheet-entry:nth-child(odd) {
+  background: linear-gradient(180deg, rgba(15,23,42,0.98), rgba(8,14,28,0.97));
+}
+
+.dark [data-testid="timesheet-mobile-grid"] .mobile-timesheet-entry:nth-child(even) {
+  background: linear-gradient(180deg, rgba(17,24,39,0.98), rgba(10,16,31,0.97));
+}
+
+.dark [data-testid="timesheet-mobile-grid"] label,
+.dark .timesheet-entry-card label,
+.dark .timesheet-mobile-card label {
+  color: rgba(245, 190, 80, 0.92);
+}
+
+.dark [data-testid="timesheet-mobile-grid"] select.mobile-entry-field,
+.dark [data-testid="timesheet-mobile-grid"] button.mobile-entry-field,
+.dark .timesheet-select-field {
+  background-image: linear-gradient(180deg, rgba(15,23,42,0.98), rgba(8,14,28,0.98)) !important;
+}

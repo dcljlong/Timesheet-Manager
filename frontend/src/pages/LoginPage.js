@@ -21,14 +21,27 @@ export default function LoginPage() {
     return null;
   }
 
+  // TIMESHEET / NORMAL LOGIN FORM RELIABILITY V1
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+
+    const formData = new FormData(e.currentTarget);
+    const submittedEmail = String(formData.get("email") || email || "").trim();
+    const submittedPassword = String(formData.get("password") || password || "");
+
+    if (!submittedEmail || !submittedPassword) {
+      setError("Enter your email and password.");
+      return;
+    }
+
+    setEmail(submittedEmail);
+    setPassword(submittedPassword);
     setLoading(true);
 
     try {
-      await login(email, password);
-      navigate("/");
+      await login(submittedEmail, submittedPassword);
+      navigate("/", { replace: true });
     } catch (err) {
       setError(formatApiError(err));
     } finally {
@@ -79,7 +92,9 @@ export default function LoginPage() {
             <Label htmlFor="email" className="tm-login-label">Email</Label>
             <Input
               id="email"
+              name="email"
               type="email"
+              autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@company.co.nz"
@@ -94,7 +109,9 @@ export default function LoginPage() {
             <div className="relative">
               <Input
                 id="password"
+                name="password"
                 type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter password"
