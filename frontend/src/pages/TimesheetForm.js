@@ -1144,7 +1144,7 @@ const handleSubmit = async (e) => {
                       onClick={() => addEntry(dayIndex)}
                       data-testid={"mobile-add-entry-" + dayIndex}
                     >
-                      Add Line
+                      Add Task Entry
                     </Button>
                     <Button
                       type="button"
@@ -1165,7 +1165,7 @@ const handleSubmit = async (e) => {
                       className="rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 p-4 text-center text-sm font-semibold text-gray-600"
                       data-testid={"mobile-empty-day-" + dayIndex}
                     >
-                      No entries for this day. Leave blank, or tap Add Line to record work or leave.
+                      No entries for this day. Leave blank, or tap Add Task Entry to record work or leave.
                     </div>
                   )}
                   {(day.entries || []).map((entry, entryIndex) => (
@@ -1180,7 +1180,7 @@ const handleSubmit = async (e) => {
                     >
                       <div className="flex items-center justify-between gap-3 mb-3">
                         <div className="mobile-entry-line-label text-[15px] font-black uppercase tracking-wide text-amber-900">
-                          Line {entryIndex + 1}
+                          Task Entry {entryIndex + 1}
                         </div>
                         <div className="text-sm font-bold text-gray-900">
                           {(parseFloat(entry.total_hours) || 0).toFixed(2)} hrs
@@ -1437,7 +1437,7 @@ const handleSubmit = async (e) => {
           </td>
           <td className="p-2">
             <Button type="button" size="sm" variant="outline" onClick={() => addEntry(dayIndex)} data-testid={"desktop-add-entry-empty-" + dayIndex}>
-              Add Line
+              Add Task Entry
             </Button>
           </td>
         </tr>
