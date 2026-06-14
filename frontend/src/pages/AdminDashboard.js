@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth, API } from "../App";
 import axios from "axios";
@@ -49,6 +49,42 @@ export default function AdminDashboard() {
   const currentSmartlyScopeKey = `${selectedWeekEnding}::${smartlyPayGroup}`;
   const isSmartlySummaryCurrent =
     Boolean(smartlySummary) && smartlySummary.validated_scope_key === currentSmartlyScopeKey;
+
+  // TIMESHEET MANAGER / SMARTLY EXCLUSION DISPLAY NORMALISER V7
+  // Smartly validation exclusions are expected payroll exclusions, not errors.
+  // Normalise old/raw backend reason strings into clear admin wording.
+  const formatSmartlyExclusionDisplay = (item) => {
+    const employeeName = item?.employee_name || "Unknown";
+    const rawReason = String(item?.reason || "").trim();
+
+    const knownLabels = {
+      annual_leave: "Annual Leave",
+      sick: "Sick",
+      public_holiday: "Public Holiday",
+      no_work: "No Work",
+      unpaid_day_off: "No Work"
+    };
+
+    const rawType =
+      item?.entry_type ||
+      rawReason.split(":").pop()?.trim() ||
+      "";
+
+    const normalisedType = String(rawType)
+      .trim()
+      .toLowerCase()
+      .replace(/[-\s]+/g, "_");
+
+    const label = knownLabels[normalisedType] ||
+      normalisedType
+        .split("_")
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ") ||
+      "Non-work row";
+
+    return `${employeeName} — ${label} recorded on timesheet, excluded from Smartly work-hours CSV.`;
+  };
   const weekOptions = Array.from(
     new Set(timesheets.map(ts => ts.week_ending).filter(Boolean))
   ).sort((a, b) => new Date(b) - new Date(a));
@@ -454,7 +490,7 @@ export default function AdminDashboard() {
                     <ul className="text-sm text-amber-700 space-y-1">
                       {smartlySummary.exclusions.slice(0, 5).map((item, idx) => (
                         <li key={`exclusion-${idx}`}>
-                          {(item.employee_name || "Unknown")} - {item.reason}
+                          {formatSmartlyExclusionDisplay(item)}
                         </li>
                       ))}
                     </ul>
