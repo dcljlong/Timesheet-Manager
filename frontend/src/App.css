@@ -3536,3 +3536,101 @@ canvas.signature-canvas,
   border-color: #94a3b8 !important;
   color: #020617 !important;
 }
+
+/* TIMESHEET MANAGER / STAFF WEEK CLARITY STYLING V1
+   Staff-facing week clarity pass:
+   - make each day section obvious
+   - make day headers scan fast on phones
+   - support Monday-Friday completion rule visually
+   - improve native select/dropdown contrast in dark mode
+*/
+[data-testid="timesheet-mobile-grid"] [data-testid^="mobile-day-card-"] {
+  border-width: 2px !important;
+  border-color: rgba(180, 128, 38, 0.42) !important;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.10) !important;
+}
+
+[data-testid="timesheet-mobile-grid"] .mobile-day-header {
+  margin: -0.25rem -0.25rem 0.85rem -0.25rem !important;
+  padding: 0.8rem 0.85rem !important;
+  border-radius: 0.85rem !important;
+  border: 1px solid rgba(180, 128, 38, 0.38) !important;
+  background: linear-gradient(135deg, rgba(255, 248, 232, 0.98), rgba(255, 255, 255, 0.96)) !important;
+}
+
+[data-testid="timesheet-mobile-grid"] .mobile-day-title {
+  color: #111827 !important;
+  font-size: 1.45rem !important;
+  line-height: 1.05 !important;
+  letter-spacing: -0.035em !important;
+}
+
+[data-testid="timesheet-mobile-grid"] .mobile-day-header p {
+  color: #4b5563 !important;
+  font-weight: 700 !important;
+}
+
+[data-testid="timesheet-mobile-grid"] .mobile-day-header p span {
+  color: #111827 !important;
+  font-weight: 900 !important;
+}
+
+[data-testid="timesheet-mobile-grid"] [data-testid^="mobile-empty-day-"] {
+  border-color: rgba(180, 128, 38, 0.42) !important;
+  background: rgba(255, 251, 235, 0.86) !important;
+  color: #78350f !important;
+}
+
+[data-testid="timesheet-mobile-grid"] .mobile-entry-field,
+[data-testid="timesheet-mobile-grid"] select.mobile-entry-field {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border: 2px solid rgba(180, 128, 38, 0.66) !important;
+}
+
+[data-testid="timesheet-mobile-grid"] select.mobile-entry-field option {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+}
+
+.dark [data-testid="timesheet-mobile-grid"] [data-testid^="mobile-day-card-"] {
+  border-color: rgba(245, 190, 80, 0.42) !important;
+  background: rgba(3, 7, 18, 0.82) !important;
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.38) !important;
+}
+
+.dark [data-testid="timesheet-mobile-grid"] .mobile-day-header {
+  border-color: rgba(245, 190, 80, 0.5) !important;
+  background: linear-gradient(135deg, rgba(80, 57, 19, 0.82), rgba(15, 23, 42, 0.96)) !important;
+}
+
+.dark [data-testid="timesheet-mobile-grid"] .mobile-day-title {
+  color: #fef3c7 !important;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35) !important;
+}
+
+.dark [data-testid="timesheet-mobile-grid"] .mobile-day-header p {
+  color: #fde68a !important;
+}
+
+.dark [data-testid="timesheet-mobile-grid"] .mobile-day-header p span {
+  color: #ffffff !important;
+}
+
+.dark [data-testid="timesheet-mobile-grid"] [data-testid^="mobile-empty-day-"] {
+  border-color: rgba(245, 190, 80, 0.48) !important;
+  background: rgba(69, 46, 14, 0.52) !important;
+  color: #fde68a !important;
+}
+
+.dark [data-testid="timesheet-mobile-grid"] .mobile-entry-field,
+.dark [data-testid="timesheet-mobile-grid"] select.mobile-entry-field {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border-color: rgba(245, 190, 80, 0.85) !important;
+}
+
+.dark [data-testid="timesheet-mobile-grid"] select.mobile-entry-field option {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+}
