@@ -256,7 +256,7 @@ export default function ManageUsers() {
                   Manage Users
                 </h1>
                 <p className="mt-1 max-w-3xl text-sm text-gray-600">
-                  Create staff logins, control roles, and maintain payroll export details before loading the full team. Invite opens an email draft; acceptance/first login is not tracked yet, so confirm setup manually.
+                  Create staff logins, control roles, and maintain payroll export details before loading the full team. Invite opens an email draft; Account Status now shows Invite ready, Active, and first/last login proof.
                 </p>
               </div>
             </div>
@@ -523,4 +523,5 @@ export default function ManageUsers() {
     </Layout>
   );
 }
+
 
