@@ -2452,56 +2452,6 @@ async def update_timesheet(timesheet_id: str, update: TimesheetUpdate, request: 
     return {"message": "Timesheet updated"}
 
 
-
-# TIMESHEET MANAGER / TEMP EXACT LISA APPROVED TEST CLEANUP ROUTE V2
-# Temporary commercial-release test-data cleanup only.
-# This route must be removed immediately after deleting the exact pre-release Lisa test record.
-@api_router.delete("/timesheets/admin-test-cleanup/lisa-approved-2026-06-07/{timesheet_id}")
-async def delete_exact_lisa_approved_test_timesheet(timesheet_id: str, request: Request):
-    user = await get_current_user(request)
-
-    if user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-
-    expected_id = "6a2e731b5f72b19dfcc1b300"
-    if timesheet_id != expected_id:
-        raise HTTPException(status_code=400, detail="This temporary cleanup route only allows the exact approved Lisa test timesheet ID.")
-
-    timesheet = await db.timesheets.find_one({"_id": ObjectId(timesheet_id)})
-    if not timesheet:
-        raise HTTPException(status_code=404, detail="Timesheet not found")
-
-    if timesheet.get("employee_name") != "Lisa Long":
-        raise HTTPException(status_code=400, detail="Cleanup guard failed: employee mismatch.")
-
-    if timesheet.get("week_ending") != "2026-06-07":
-        raise HTTPException(status_code=400, detail="Cleanup guard failed: week ending mismatch.")
-
-    if timesheet.get("status") != "approved":
-        raise HTTPException(status_code=400, detail="Cleanup guard failed: status mismatch.")
-
-    if bool(timesheet.get("pm_approved")) is not True or bool(timesheet.get("admin_approved")) is not True:
-        raise HTTPException(status_code=400, detail="Cleanup guard failed: approval state mismatch.")
-
-    try:
-        total_hours = float(timesheet.get("total_hours") or 0)
-    except Exception:
-        total_hours = 0
-
-    if total_hours != 36.75:
-        raise HTTPException(status_code=400, detail="Cleanup guard failed: total hours mismatch.")
-
-    delete_result = await db.timesheets.delete_one({"_id": ObjectId(timesheet_id)})
-    if delete_result.deleted_count != 1:
-        raise HTTPException(status_code=500, detail="Cleanup delete failed.")
-
-    return {
-        "message": "Exact pre-release Lisa approved test timesheet deleted",
-        "deleted_id": timesheet_id,
-        "employee_name": "Lisa Long",
-        "week_ending": "2026-06-07",
-        "temporary_route_must_be_removed": True
-    }
 @api_router.delete("/timesheets/{timesheet_id}")
 async def delete_timesheet(timesheet_id: str, request: Request):
     user = await get_current_user(request)
