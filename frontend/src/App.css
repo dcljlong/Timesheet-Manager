@@ -3735,3 +3735,32 @@ canvas.signature-canvas,
   background-color: #2563eb !important;
   color: #ffffff !important;
 }
+
+/* TIMESHEET MANAGER / DARK MODE SELECTED DROPDOWN TEXT V1
+   Make the CLOSED selected value, placeholder, and chevron readable in dark mode.
+   This applies to Type, Lunch, Job, Task, and Project Manager fields.
+*/
+.dark [data-testid="timesheet-mobile-grid"] [role="combobox"].mobile-entry-field,
+.dark [data-testid="timesheet-mobile-grid"] button.mobile-entry-field {
+  color: #f8fafc !important;
+  background-color: #071633 !important;
+  border-color: rgba(245, 190, 80, 0.9) !important;
+}
+
+.dark [data-testid="timesheet-mobile-grid"] [role="combobox"].mobile-entry-field span,
+.dark [data-testid="timesheet-mobile-grid"] button.mobile-entry-field span {
+  color: #f8fafc !important;
+  opacity: 1 !important;
+}
+
+.dark [data-testid="timesheet-mobile-grid"] [role="combobox"].mobile-entry-field [data-placeholder],
+.dark [data-testid="timesheet-mobile-grid"] button.mobile-entry-field [data-placeholder] {
+  color: #cbd5e1 !important;
+  opacity: 1 !important;
+}
+
+.dark [data-testid="timesheet-mobile-grid"] [role="combobox"].mobile-entry-field svg,
+.dark [data-testid="timesheet-mobile-grid"] button.mobile-entry-field svg {
+  color: #f8fafc !important;
+  opacity: 1 !important;
+}
