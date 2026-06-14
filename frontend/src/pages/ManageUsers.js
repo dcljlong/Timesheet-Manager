@@ -188,7 +188,7 @@ export default function ManageUsers() {
     if (!value) return "";
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return "";
-    return format(parsed, "d MMM yyyy h:mm a");
+    return format(parsed, "d MMM h:mm a");
   };
 
   const getAccountStatusBadge = (targetUser) => {
@@ -199,33 +199,33 @@ export default function ManageUsers() {
 
     if (lastLogin || rawStatus === "active") {
       return (
-        <div className="min-w-[150px]">
+        <div className="min-w-[118px] max-w-[140px]">
           <span className="inline-flex rounded-full bg-green-100 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-green-800">
             Active
           </span>
-          <p className="mt-1 text-xs text-gray-500">{lastLogin ? `Last login ${lastLogin}` : "Login confirmed"}</p>
-          {firstLogin && <p className="text-[11px] text-gray-400">First login {firstLogin}</p>}
+          <p className="mt-1 text-xs leading-snug text-gray-500">{lastLogin ? `Last ${lastLogin}` : "Login confirmed"}</p>
+          {firstLogin && <p className="text-[11px] leading-snug text-gray-400">First {firstLogin}</p>}
         </div>
       );
     }
 
     if (rawStatus === "invited") {
       return (
-        <div className="min-w-[150px]">
+        <div className="min-w-[118px] max-w-[140px]">
           <span className="inline-flex rounded-full bg-blue-100 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-blue-800">
             Invite ready
           </span>
-          <p className="mt-1 text-xs text-gray-500">{invitedAt ? `Created ${invitedAt}` : "Waiting for first login"}</p>
+          <p className="mt-1 text-xs leading-snug text-gray-500">{invitedAt ? `Created ${invitedAt}` : "Waiting for first login"}</p>
         </div>
       );
     }
 
     return (
-      <div className="min-w-[150px]">
+      <div className="min-w-[118px] max-w-[140px]">
         <span className="inline-flex rounded-full bg-amber-100 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-800">
           Not proven
         </span>
-        <p className="mt-1 text-xs text-gray-500">No login recorded yet</p>
+        <p className="mt-1 text-xs leading-snug text-gray-500">No login recorded yet</p>
       </div>
     );
   };
@@ -523,6 +523,7 @@ export default function ManageUsers() {
     </Layout>
   );
 }
+
 
 
 
