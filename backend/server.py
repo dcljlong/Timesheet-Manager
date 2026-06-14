@@ -1563,7 +1563,7 @@ async def _build_smartly_export_bundle(week_ending: Optional[str] = None, pay_gr
                         "timesheet_id": timesheet_id,
                         "employee_name": employee_name,
                         "week_ending": week_value,
-                        "reason": f"Non-work row not included in Smartly work export: {entry_type}",
+                        "reason": f"Recorded on timesheet but excluded from Smartly work-hours CSV: {entry_type.replace('_', ' ').title()}",
                         "day": day_name
                     })
                     continue
@@ -3096,4 +3096,5 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 

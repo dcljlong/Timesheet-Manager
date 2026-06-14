@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth, API } from "../App";
 import axios from "axios";
@@ -450,7 +450,7 @@ export default function AdminDashboard() {
 
                 {isSmartlySummaryCurrent && smartlySummary.exclusion_count > 0 && (
                   <div>
-                    <p className="text-sm font-medium text-amber-700 mb-1">Top Exclusions</p>
+                    <p className="text-sm font-medium text-amber-700 mb-1">Non-work rows excluded from work-hours export</p>
                     <ul className="text-sm text-amber-700 space-y-1">
                       {smartlySummary.exclusions.slice(0, 5).map((item, idx) => (
                         <li key={`exclusion-${idx}`}>
@@ -540,3 +540,4 @@ export default function AdminDashboard() {
     </Layout>
   );
 }
+
