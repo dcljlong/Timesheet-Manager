@@ -194,7 +194,40 @@ export default function TimesheetView() {
     );
   }
 
-  if (!timesheet) return null;
+  if (!timesheet) {
+    return (
+      <Layout>
+        <div className="fade-in" data-testid="timesheet-load-error">
+          <div className="card mx-auto max-w-2xl p-6 text-center">
+            <h1 className="mb-2 text-2xl font-bold text-gray-900">
+              Timesheet could not be opened
+            </h1>
+            <p className="mb-5 text-sm text-gray-600">
+              This timesheet may have been deleted, returned, or your login may not have access. This screen replaces the old blank page so staff can recover safely.
+            </p>
+            <div className="flex flex-col justify-center gap-3 sm:flex-row">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => navigate(-1)}
+                data-testid="timesheet-load-back-button"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Go Back
+              </Button>
+              <Button
+                type="button"
+                onClick={() => navigate(user?.role === "admin" ? "/admin" : user?.role === "project_manager" ? "/pm" : "/")}
+                data-testid="timesheet-load-dashboard-button"
+              >
+                Open Dashboard
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -522,6 +555,7 @@ export default function TimesheetView() {
     </Layout>
   );
 }
+
 
 
 
