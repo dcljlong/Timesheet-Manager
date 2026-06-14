@@ -720,6 +720,19 @@ export default function TimesheetView() {
             break-inside: avoid !important;
           }
 
+          /* TIMESHEET MANAGER / PRINTER FRIENDLY PRINT BANDS V2
+             Final print override: table headers and total rows must be ink-light for printer-friendly payroll copies.
+          */
+          [data-testid="timesheet-print-document"] th,
+          [data-testid="timesheet-print-document"] .bg-gray-900,
+          [data-testid="timesheet-print-document"] [class*="bg-gray-900"] {
+            background: #f3f4f6 !important;
+            color: #111827 !important;
+          }
+
+          [data-testid="timesheet-print-document"] th {
+            border-bottom: 1.5px solid #9ca3af !important;
+          }
           .print\\:hidden { display: none !important; }
           .print\\:shadow-none { box-shadow: none !important; }
           .print\\:border-2 { border-width: 0 !important; }
@@ -729,6 +742,7 @@ export default function TimesheetView() {
     </Layout>
   );
 }
+
 
 
 
