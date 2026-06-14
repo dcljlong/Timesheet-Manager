@@ -91,9 +91,18 @@ export default function TimesheetView() {
       }, 0);
     };
 
+  // TIMESHEET MANAGER / COMPACT NO WORK SUMMARY ROWS V3
+  // Keep payroll review clean: No Work is a confirmed day state, not a full work-detail row.
+  const normaliseEntryTypeForView = (type) => String(type || "work").trim().toLowerCase().replace(/[-\s]+/g, "_");
+
+  const isNoWorkEntryType = (type) => {
+    const normalised = normaliseEntryTypeForView(type);
+    return normalised === "no_work" || normalised === "unpaid_day_off";
+  };
+
   const formatEntryTypeLabel = (type) => {
-    const normalised = String(type || "work").trim().toLowerCase().replace(/[-\s]+/g, "_");
-    if (normalised === "unpaid_day_off") return "No Work";
+    const normalised = normaliseEntryTypeForView(type);
+    if (isNoWorkEntryType(normalised)) return "No Work";
     if (normalised === "public_holiday") return "Public Holiday";
     if (normalised === "annual_leave") return "Annual Leave";
     if (normalised === "sick") return "Sick";
@@ -348,27 +357,56 @@ export default function TimesheetView() {
                 </tr>
               </thead>
               <tbody>
-                {timesheet.days.map((day, dayIndex) => (
-                  day.entries.map((entry, entryIndex) => (
-                    <tr key={`${dayIndex}-${entryIndex}`} className="hover:bg-gray-50">
-                      {entryIndex === 0 && (
-                        <td className="p-2 border font-medium bg-gray-50" rowSpan={day.entries.length}>
-                          {day.day}
-                        </td>
-                      )}
-                      <td className="px-3 py-2 border border-gray-200 font-medium">{formatEntryTypeLabel(entry.type)}</td>
-                      <td className="px-3 py-2 border border-gray-200">{entry.start_time || "-"}</td>
-                      <td className="px-3 py-2 border border-gray-200">{entry.lunch_duration ? `${entry.lunch_duration}m` : "-"}</td>
-                      <td className="px-3 py-2 border border-gray-200">{entry.finish_time || "-"}</td>
-                      <td className="p-2 border font-medium">{entry.total_hours?.toFixed(2) || "0.00"}</td>
-                      <td className="px-3 py-2 border border-gray-200">{entry.job_number || "-"}</td>
-                      <td className="px-3 py-2 border border-gray-200">{entry.task_code || "-"}</td>
-                      <td className="px-3 py-2 border border-gray-200">{entry.project_manager_id ? getPmName(entry.project_manager_id) : "-"}</td>
-                      <td className="px-3 py-2 border border-gray-200">{entry.description || entry.other || "-"}</td>
-                    </tr>
-                  ))
-                ))}
-                <tr className="bg-gray-900 text-white font-bold">
+                  {timesheet.days.map((day, dayIndex) => (
+                    day.entries.map((entry, entryIndex) => {
+                      const isNoWorkRow = isNoWorkEntryType(entry.type);
+                      const rowSpan = day.entries.length;
+
+                      if (isNoWorkRow) {
+                        return (
+                          <tr
+                            key={`${dayIndex}-${entryIndex}`}
+                            className="bg-emerald-50 hover:bg-emerald-50"
+                            data-testid={`compact-no-work-row-${dayIndex}-${entryIndex}`}
+                          >
+                            {entryIndex === 0 && (
+                              <td className="p-2 border font-medium bg-emerald-100 text-emerald-950" rowSpan={rowSpan}>
+                                {day.day}
+                              </td>
+                            )}
+                            <td colSpan="9" className="px-3 py-2 border border-emerald-200 text-emerald-900">
+                              <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-900">
+                                No Work confirmed
+                              </span>
+                              <span className="ml-2 text-xs text-emerald-800">
+                                No start, finish, lunch, job, task, or PM required.
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return (
+                        <tr key={`${dayIndex}-${entryIndex}`} className="hover:bg-gray-50">
+                          {entryIndex === 0 && (
+                            <td className="p-2 border font-medium bg-gray-50" rowSpan={rowSpan}>
+                              {day.day}
+                            </td>
+                          )}
+                          <td className="px-3 py-2 border border-gray-200 font-medium">{formatEntryTypeLabel(entry.type)}</td>
+                          <td className="px-3 py-2 border border-gray-200">{entry.start_time || "-"}</td>
+                          <td className="px-3 py-2 border border-gray-200">{entry.lunch_duration ? `${entry.lunch_duration}m` : "-"}</td>
+                          <td className="px-3 py-2 border border-gray-200">{entry.finish_time || "-"}</td>
+                          <td className="p-2 border font-medium">{entry.total_hours?.toFixed(2) || "0.00"}</td>
+                          <td className="px-3 py-2 border border-gray-200">{entry.job_number || "-"}</td>
+                          <td className="px-3 py-2 border border-gray-200">{entry.task_code || "-"}</td>
+                          <td className="px-3 py-2 border border-gray-200">{entry.project_manager_id ? getPmName(entry.project_manager_id) : "-"}</td>
+                          <td className="px-3 py-2 border border-gray-200">{entry.description || entry.other || "-"}</td>
+                        </tr>
+                      );
+                    })
+                  ))}
+                  <tr className="bg-gray-900 text-white font-bold">
                   <td colSpan="5" className="p-3 border text-right">TOTAL HOURS:</td>
                   <td className="p-3 border text-lg" data-testid="view-total-hours">{getCalculatedTotalHours().toFixed(2)}</td>
                   <td colSpan="4" className="p-3 border"></td>
@@ -555,6 +593,8 @@ export default function TimesheetView() {
     </Layout>
   );
 }
+
+
 
 
 
