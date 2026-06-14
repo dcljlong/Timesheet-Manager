@@ -380,8 +380,8 @@ export default function ManageUsers() {
                   <tr>
                     <th>Name</th>
                     <th>Email</th>
-                    <th>Role</th>
                     <th>Account Status</th>
+                    <th>Role</th>
                       <th>Smartly Code</th>
                       <th>Pay Group</th>
                       <th>Payroll Treatment</th>
@@ -396,6 +396,7 @@ export default function ManageUsers() {
                     <tr key={u.id} data-testid={`user-row-${u.id}`}>
                       <td className="font-medium">{u.name}</td>
                       <td>{u.email}</td>
+                      <td>{getAccountStatusBadge(u)}</td>
                       <td>
                         <Select
                           value={u.role}
@@ -412,7 +413,6 @@ export default function ManageUsers() {
                           </SelectContent>
                         </Select>
                       </td>
-                      <td>{getAccountStatusBadge(u)}</td>
                         <td>
                           <Input
                             value={u.smartly_employee_code || ""}
@@ -523,5 +523,6 @@ export default function ManageUsers() {
     </Layout>
   );
 }
+
 
 
