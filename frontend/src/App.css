@@ -3522,3 +3522,17 @@ body {
     font-size: 0.75rem !important;
   }
 }
+
+/* TIMESHEET MANAGER / SIGNATURE CANVAS DARK MODE VISIBILITY V2
+   Signature ink is dark. Keep all signature canvases white in dark mode so PM/admin approval signatures remain visible.
+*/
+.signature-canvas,
+.dark .signature-canvas,
+[data-testid="signature-canvas"],
+.dark [data-testid="signature-canvas"],
+canvas.signature-canvas,
+.dark canvas.signature-canvas {
+  background-color: #ffffff !important;
+  border-color: #94a3b8 !important;
+  color: #020617 !important;
+}
