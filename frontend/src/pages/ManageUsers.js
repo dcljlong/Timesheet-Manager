@@ -184,6 +184,52 @@ export default function ManageUsers() {
     );
   };
 
+  const formatStatusDate = (value) => {
+    if (!value) return "";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return "";
+    return format(parsed, "d MMM yyyy h:mm a");
+  };
+
+  const getAccountStatusBadge = (targetUser) => {
+    const rawStatus = String(targetUser?.account_status || "").trim().toLowerCase();
+    const lastLogin = formatStatusDate(targetUser?.last_login_at);
+    const firstLogin = formatStatusDate(targetUser?.first_login_at);
+    const invitedAt = formatStatusDate(targetUser?.invited_at || targetUser?.created_at);
+
+    if (lastLogin || rawStatus === "active") {
+      return (
+        <div className="min-w-[150px]">
+          <span className="inline-flex rounded-full bg-green-100 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-green-800">
+            Active
+          </span>
+          <p className="mt-1 text-xs text-gray-500">{lastLogin ? `Last login ${lastLogin}` : "Login confirmed"}</p>
+          {firstLogin && <p className="text-[11px] text-gray-400">First login {firstLogin}</p>}
+        </div>
+      );
+    }
+
+    if (rawStatus === "invited") {
+      return (
+        <div className="min-w-[150px]">
+          <span className="inline-flex rounded-full bg-blue-100 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-blue-800">
+            Invite ready
+          </span>
+          <p className="mt-1 text-xs text-gray-500">{invitedAt ? `Created ${invitedAt}` : "Waiting for first login"}</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="min-w-[150px]">
+        <span className="inline-flex rounded-full bg-amber-100 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-800">
+          Not proven
+        </span>
+        <p className="mt-1 text-xs text-gray-500">No login recorded yet</p>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -329,12 +375,13 @@ export default function ManageUsers() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="data-table min-w-[1280px] text-sm">
+              <table className="data-table min-w-[1420px] text-sm">
                 <thead>
                   <tr>
                     <th>Name</th>
                     <th>Email</th>
                     <th>Role</th>
+                    <th>Account Status</th>
                       <th>Smartly Code</th>
                       <th>Pay Group</th>
                       <th>Payroll Treatment</th>
@@ -365,6 +412,7 @@ export default function ManageUsers() {
                           </SelectContent>
                         </Select>
                       </td>
+                      <td>{getAccountStatusBadge(u)}</td>
                         <td>
                           <Input
                             value={u.smartly_employee_code || ""}
@@ -417,7 +465,7 @@ export default function ManageUsers() {
                           />
                         </td>
                       <td className="text-gray-500">
-                        {u.created_at ? format(new Date(u.created_at), "d MMM yyyy") : "-"}
+                        {formatStatusDate(u.created_at) || "-"}
                       </td>
                       <td className="min-w-[240px]">
                         <div className="flex flex-col gap-2" data-testid={`user-action-group-${u.id}`}>
@@ -475,3 +523,4 @@ export default function ManageUsers() {
     </Layout>
   );
 }
+

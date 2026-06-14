@@ -1,4 +1,4 @@
-from dotenv import load_dotenv
+﻿from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends
@@ -57,6 +57,10 @@ class UserResponse(BaseModel):
     name: str
     role: str
     created_at: str
+    invited_at: Optional[str] = None
+    first_login_at: Optional[str] = None
+    last_login_at: Optional[str] = None
+    account_status: Optional[str] = None
 
 class TaskCodeCreate(BaseModel):
     code: str
@@ -230,13 +234,24 @@ async def get_current_user(request: Request) -> dict:
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
+def serialize_optional_datetime(value) -> str:
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value or "")
+
 def serialize_user(user: dict) -> dict:
+    last_login_at = user.get("last_login_at")
+    account_status = user.get("account_status") or ("active" if last_login_at else "not_proven")
     return {
         "id": str(user["_id"]),
         "email": user["email"],
         "name": user["name"],
         "role": user["role"],
-        "created_at": user.get("created_at", datetime.now(timezone.utc)).isoformat() if isinstance(user.get("created_at"), datetime) else str(user.get("created_at", ""))
+        "created_at": serialize_optional_datetime(user.get("created_at", datetime.now(timezone.utc))),
+        "invited_at": serialize_optional_datetime(user.get("invited_at")),
+        "first_login_at": serialize_optional_datetime(user.get("first_login_at")),
+        "last_login_at": serialize_optional_datetime(last_login_at),
+        "account_status": account_status
     }
 
 # ==================== HEALTH ENDPOINTS ====================
@@ -321,6 +336,17 @@ async def login(user: UserLogin, response: Response, request: Request):
     await db.login_attempts.delete_one({"identifier": identifier})
 
     user_id = str(db_user["_id"])
+    login_now = datetime.now(timezone.utc)
+    login_update = {
+        "last_login_at": login_now,
+        "account_status": "active"
+    }
+    if not db_user.get("first_login_at"):
+        login_update["first_login_at"] = login_now
+
+    await db.users.update_one({"_id": db_user["_id"]}, {"$set": login_update})
+    db_user = {**db_user, **login_update}
+
     access_token = create_access_token(user_id, email, db_user["role"])
 
     user_data = serialize_user(db_user)
@@ -2050,15 +2076,15 @@ async def get_timesheet_reference_options(request: Request):
         if not text:
             return ""
         replacements = {
+            "Ã¢â‚¬â€œ": "-",
+            "Ã¢â‚¬â€": "-",
             "â€“": "-",
             "â€”": "-",
-            "–": "-",
-            "—": "-",
-            "â€™": "'",
-            "â€˜": "'",
-            "â€œ": '"',
-            "â€": '"',
-            "Â": ""
+            "Ã¢â‚¬â„¢": "'",
+            "Ã¢â‚¬Ëœ": "'",
+            "Ã¢â‚¬Å“": '"',
+            "Ã¢â‚¬": '"',
+            "Ã‚": ""
         }
         for bad, good in replacements.items():
             text = text.replace(bad, good)
@@ -2721,6 +2747,10 @@ async def get_users(request: Request):
             "name": 1,
             "role": 1,
             "created_at": 1,
+            "invited_at": 1,
+            "first_login_at": 1,
+            "last_login_at": 1,
+            "account_status": 1,
             "smartly_employee_code": 1,
             "smartly_pay_group": 1,
             "payroll_treatment": 1,
@@ -2743,6 +2773,10 @@ async def get_users(request: Request):
             continue
 
         created_at = u.get("created_at", "")
+        invited_at = u.get("invited_at", "")
+        first_login_at = u.get("first_login_at", "")
+        last_login_at = u.get("last_login_at", "")
+        account_status = u.get("account_status") or ("active" if last_login_at else "not_proven")
         safe_users.append({
             "id": str(u.get("_id", "")),
             "email": u.get("email", ""),
@@ -2753,7 +2787,11 @@ async def get_users(request: Request):
             "payroll_treatment": u.get("payroll_treatment", "payroll_employee"),
             "smartly_costing_mode": u.get("smartly_costing_mode", "define_now"),
             "smartly_has_standard_hours": u.get("smartly_has_standard_hours", True),
-            "created_at": created_at.isoformat() if isinstance(created_at, datetime) else str(created_at or ""),
+            "created_at": serialize_optional_datetime(created_at),
+            "invited_at": serialize_optional_datetime(invited_at),
+            "first_login_at": serialize_optional_datetime(first_login_at),
+            "last_login_at": serialize_optional_datetime(last_login_at),
+            "account_status": account_status,
         })
 
     return safe_users
@@ -2780,12 +2818,17 @@ async def create_user(user_create: UserCreate, request: Request):
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
 
+    created_now = datetime.now(timezone.utc)
     user_doc = {
         "email": email,
         "password_hash": hash_password(password),
         "name": name,
         "role": role,
-        "created_at": datetime.now(timezone.utc),
+        "created_at": created_now,
+        "invited_at": created_now,
+        "first_login_at": None,
+        "last_login_at": None,
+        "account_status": "invited",
         "notification_settings": {
             "reminder_time": "17:00",
             "reminder_day": "Friday",
@@ -2811,7 +2854,11 @@ async def create_user(user_create: UserCreate, request: Request):
         "payroll_treatment": user_doc["payroll_treatment"],
         "smartly_costing_mode": user_doc["smartly_costing_mode"],
         "smartly_has_standard_hours": user_doc["smartly_has_standard_hours"],
-        "created_at": user_doc["created_at"].isoformat()
+        "created_at": user_doc["created_at"].isoformat(),
+        "invited_at": user_doc["invited_at"].isoformat(),
+        "first_login_at": "",
+        "last_login_at": "",
+        "account_status": user_doc["account_status"]
     }
 
 @api_router.put("/users/{user_id}/role")
@@ -3049,3 +3096,4 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
