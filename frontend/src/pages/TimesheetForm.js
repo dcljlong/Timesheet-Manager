@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useAuth, API, formatApiError } from "../App";
 import axios from "axios";
@@ -888,6 +888,37 @@ const handleSubmit = async (e) => {
         toast.error(`Hours are required for work entry on ${incompleteWorkEntry.day}`);
       }
       return;
+    }
+
+    // TIMESHEET MANAGER / WEEKDAY COMPLETENESS SUBMIT GUARD V4
+    // Payroll rule: Monday-Friday must be deliberately confirmed before staff submit.
+    // Weekends remain optional unless the staff member adds weekend work.
+    if (!isPmEditing) {
+      const requiredWeekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+      const confirmedWeekdayTypes = new Set([
+        "work",
+        "no_work",
+        "unpaid_day_off",
+        "annual_leave",
+        "sick",
+        "public_holiday"
+      ]);
+      const normaliseWeekdayTypeForSubmit = (value) =>
+        String(value || "").trim().toLowerCase().replace(/[-\s]+/g, "_");
+
+      const missingRequiredWeekday = requiredWeekdays.find((weekday) => {
+        const day = days.find((item) => item.day === weekday);
+        const entries = Array.isArray(day?.entries) ? day.entries : [];
+
+        return !entries.some((entry) =>
+          confirmedWeekdayTypes.has(normaliseWeekdayTypeForSubmit(entry?.type))
+        );
+      });
+
+      if (missingRequiredWeekday) {
+        toast.error(`${missingRequiredWeekday} must be completed before submitting. Select Work, No Work, Annual Leave, Sick, or Public Holiday.`);
+        return;
+      }
     }
 
     if (!isPmEditing && !employeeSignature) {
