@@ -3764,3 +3764,31 @@ canvas.signature-canvas,
   color: #f8fafc !important;
   opacity: 1 !important;
 }
+
+/* TIMESHEET MANAGER / NATIVE TYPE SELECT DARK MODE VISIBILITY V1
+   Type is a native select, not a Radix combobox.
+   Keep the closed selected Type value readable in dark mode while keeping the open option list readable.
+*/
+.dark [data-testid="timesheet-mobile-grid"] select.mobile-entry-field {
+  background-color: #071633 !important;
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
+  border-color: rgba(245, 190, 80, 0.92) !important;
+  font-weight: 900 !important;
+}
+
+.dark [data-testid="timesheet-mobile-grid"] select.mobile-entry-field:focus,
+.dark [data-testid="timesheet-mobile-grid"] select.mobile-entry-field:focus-visible {
+  background-color: #071633 !important;
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
+  outline: 2px solid rgba(245, 190, 80, 0.95) !important;
+  outline-offset: 2px !important;
+}
+
+.dark [data-testid="timesheet-mobile-grid"] select.mobile-entry-field option {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  -webkit-text-fill-color: #111827 !important;
+  font-weight: 700 !important;
+}
