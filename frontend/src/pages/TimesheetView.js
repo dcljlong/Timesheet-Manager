@@ -286,7 +286,7 @@ export default function TimesheetView() {
         </div>
 
         {/* Timesheet Card */}
-        <div className="card p-6 mb-5 print:shadow-none print:border-2">
+        <div className="card p-6 mb-5 print:shadow-none print:border-2" data-testid="timesheet-print-document">
           {/* Header Info */}
           <div className="flex flex-wrap justify-between items-start mb-5 pb-4 border-b">
             <div>
@@ -582,17 +582,154 @@ export default function TimesheetView() {
 
       {/* Print Styles */}
       <style>{`
+        /* TIMESHEET MANAGER / PRINT PDF DOCUMENT LAYOUT V3
+           Print/PDF must output a payroll document, not the live app shell.
+           The screen UI remains unchanged; these rules apply only in print preview/PDF.
+        */
         @media print {
-          body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+          @page {
+            size: A4 portrait;
+            margin: 8mm;
+          }
+
+          html,
+          body,
+          #root {
+            width: 210mm !important;
+            min-height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            color: #111827 !important;
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
+            overflow: visible !important;
+          }
+
+          body * {
+            visibility: hidden !important;
+          }
+
+          [data-testid="timesheet-print-document"],
+          [data-testid="timesheet-print-document"] * {
+            visibility: visible !important;
+          }
+
+          [data-testid="timesheet-print-document"] {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 194mm !important;
+            max-width: 194mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: 0 !important;
+            box-shadow: none !important;
+            background: #ffffff !important;
+            color: #111827 !important;
+            font-size: 8.5pt !important;
+            line-height: 1.25 !important;
+          }
+
+          [data-testid="timesheet-view-header"],
+          [data-testid="approval-actions"],
+          [data-testid="reject-modal"],
+          [data-testid="edit-button"],
+          [data-testid="export-button"],
+          [data-testid="delete-rejected-timesheet-button"],
+          [data-testid="back-button"] {
+            display: none !important;
+            visibility: hidden !important;
+          }
+
+          [data-testid="timesheet-print-document"] h2 {
+            font-size: 13pt !important;
+            margin: 0 0 2mm 0 !important;
+          }
+
+          [data-testid="timesheet-print-document"] h3 {
+            font-size: 10pt !important;
+            margin: 3mm 0 2mm 0 !important;
+          }
+
+          [data-testid="timesheet-print-document"] p,
+          [data-testid="timesheet-print-document"] span,
+          [data-testid="timesheet-print-document"] div {
+            color: #111827 !important;
+          }
+
+          [data-testid="timesheet-print-document"] table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+            font-size: 7.3pt !important;
+            page-break-inside: auto !important;
+            break-inside: auto !important;
+          }
+
+          [data-testid="timesheet-print-document"] thead {
+            display: table-header-group !important;
+          }
+
+          [data-testid="timesheet-print-document"] tr {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+
+          [data-testid="timesheet-print-document"] th,
+          [data-testid="timesheet-print-document"] td {
+            padding: 1.4mm 1.6mm !important;
+            border: 1px solid #d1d5db !important;
+            color: #111827 !important;
+            vertical-align: top !important;
+          }
+
+          [data-testid="timesheet-print-document"] th {
+            background: #111827 !important;
+            color: #ffffff !important;
+            font-weight: 800 !important;
+          }
+
+          [data-testid="timesheet-print-document"] .bg-gray-900,
+          [data-testid="timesheet-print-document"] [class*="bg-gray-900"] {
+            background: #111827 !important;
+            color: #ffffff !important;
+          }
+
+          [data-testid="timesheet-print-document"] .bg-emerald-50,
+          [data-testid="timesheet-print-document"] [class*="bg-emerald-50"],
+          [data-testid="timesheet-print-document"] .bg-emerald-100,
+          [data-testid="timesheet-print-document"] [class*="bg-emerald-100"] {
+            background: #dcfce7 !important;
+            color: #064e3b !important;
+          }
+
+          [data-testid="timesheet-print-document"] img {
+            max-height: 20mm !important;
+            object-fit: contain !important;
+            background: #ffffff !important;
+          }
+
+          [data-testid="timesheet-print-document"] .grid {
+            gap: 4mm !important;
+          }
+
+          [data-testid="timesheet-print-document"] .border-t {
+            margin-top: 4mm !important;
+            padding-top: 3mm !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+
           .print\\:hidden { display: none !important; }
           .print\\:shadow-none { box-shadow: none !important; }
-          .print\\:border-2 { border-width: 2px !important; }
+          .print\\:border-2 { border-width: 0 !important; }
           .print\\:p-0 { padding: 0 !important; }
         }
       `}</style>
     </Layout>
   );
 }
+
 
 
 
