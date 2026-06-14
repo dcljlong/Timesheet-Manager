@@ -3634,3 +3634,104 @@ canvas.signature-canvas,
   background-color: #ffffff !important;
   color: #111827 !important;
 }
+
+/* TIMESHEET MANAGER / TIMESHEET DROPDOWN CONSISTENCY V1
+   Make all New Timesheet dropdown controls read like the Type dropdown:
+   - selected values stay visible in dark mode
+   - Lunch / Job / Task / PM Radix Select triggers match native select fields
+   - option panels stay high-contrast and practical for staff on site
+*/
+[data-testid="timesheet-mobile-grid"] .mobile-entry-field,
+[data-testid="timesheet-mobile-grid"] select.mobile-entry-field,
+[data-testid="timesheet-mobile-grid"] [role="combobox"].mobile-entry-field,
+[data-testid="timesheet-mobile-grid"] button.mobile-entry-field {
+  min-height: 3rem !important;
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border: 2px solid rgba(180, 128, 38, 0.72) !important;
+  font-weight: 800 !important;
+}
+
+[data-testid="timesheet-mobile-grid"] [role="combobox"].mobile-entry-field span,
+[data-testid="timesheet-mobile-grid"] button.mobile-entry-field span {
+  color: #111827 !important;
+  font-weight: 800 !important;
+  opacity: 1 !important;
+}
+
+[data-testid="timesheet-mobile-grid"] .mobile-entry-field svg,
+[data-testid="timesheet-mobile-grid"] [role="combobox"].mobile-entry-field svg,
+[data-testid="timesheet-mobile-grid"] button.mobile-entry-field svg {
+  color: #374151 !important;
+  opacity: 1 !important;
+}
+
+[data-testid="timesheet-mobile-grid"] select.mobile-entry-field option,
+[data-radix-select-content],
+[data-radix-select-viewport],
+[role="listbox"] {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+}
+
+[data-radix-select-item],
+[role="option"] {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  font-weight: 700 !important;
+}
+
+[data-radix-select-item]:hover,
+[data-radix-select-item][data-highlighted],
+[role="option"]:hover,
+[role="option"][data-highlighted] {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+}
+
+.dark [data-testid="timesheet-mobile-grid"] .mobile-entry-field,
+.dark [data-testid="timesheet-mobile-grid"] select.mobile-entry-field,
+.dark [data-testid="timesheet-mobile-grid"] [role="combobox"].mobile-entry-field,
+.dark [data-testid="timesheet-mobile-grid"] button.mobile-entry-field {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border-color: rgba(245, 190, 80, 0.9) !important;
+  box-shadow: inset 0 0 0 1px rgba(17, 24, 39, 0.08) !important;
+}
+
+.dark [data-testid="timesheet-mobile-grid"] [role="combobox"].mobile-entry-field span,
+.dark [data-testid="timesheet-mobile-grid"] button.mobile-entry-field span {
+  color: #111827 !important;
+  font-weight: 800 !important;
+  opacity: 1 !important;
+}
+
+.dark [data-testid="timesheet-mobile-grid"] .mobile-entry-field svg,
+.dark [data-testid="timesheet-mobile-grid"] [role="combobox"].mobile-entry-field svg,
+.dark [data-testid="timesheet-mobile-grid"] button.mobile-entry-field svg {
+  color: #374151 !important;
+  opacity: 1 !important;
+}
+
+.dark [data-testid="timesheet-mobile-grid"] select.mobile-entry-field option,
+.dark [data-radix-select-content],
+.dark [data-radix-select-viewport],
+.dark [role="listbox"] {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+}
+
+.dark [data-radix-select-item],
+.dark [role="option"] {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  font-weight: 700 !important;
+}
+
+.dark [data-radix-select-item]:hover,
+.dark [data-radix-select-item][data-highlighted],
+.dark [role="option"]:hover,
+.dark [role="option"][data-highlighted] {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+}
