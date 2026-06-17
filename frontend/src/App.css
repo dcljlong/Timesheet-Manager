@@ -3887,3 +3887,76 @@ canvas.signature-canvas,
     contain: layout paint;
   }
 }
+
+/* TIMESHEET MANAGER / MOBILE COLLAPSE HEADER LAYOUT FIX V1
+   Purpose:
+   - fix collapsed mobile day cards wrapping titles vertically
+   - make Week overview and per-day collapse controls stack cleanly on narrow phones
+   - keep desktop unchanged
+*/
+@media (max-width: 767px) {
+  [data-testid="mobile-day-overview"] > div:first-child {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 0.65rem !important;
+    align-items: stretch !important;
+  }
+
+  [data-testid="mobile-day-overview"] [data-testid="mobile-toggle-all-days"] {
+    width: 100% !important;
+    min-width: 0 !important;
+    justify-content: center !important;
+  }
+
+  [data-testid="mobile-day-overview"] .min-w-0,
+  [data-testid="mobile-day-overview"] .min-w-0 * {
+    width: 100% !important;
+    max-width: 100% !important;
+    white-space: normal !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+    writing-mode: horizontal-tb !important;
+  }
+
+  [data-testid^="mobile-day-header-"] > div:first-child {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 0.65rem !important;
+    align-items: stretch !important;
+  }
+
+  [data-testid^="mobile-toggle-day-"],
+  [data-testid^="mobile-collapse-day-"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  [data-testid^="mobile-toggle-day-"],
+  [data-testid^="mobile-toggle-day-"] *,
+  [data-testid^="mobile-collapse-day-"],
+  [data-testid^="mobile-collapse-day-"] * {
+    white-space: normal !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+    writing-mode: horizontal-tb !important;
+    text-orientation: mixed !important;
+  }
+
+  [data-testid^="mobile-toggle-day-"] .mobile-day-title {
+    display: block !important;
+    width: 100% !important;
+    font-size: 1.25rem !important;
+    line-height: 1.2 !important;
+    letter-spacing: -0.02em !important;
+  }
+
+  [data-testid^="mobile-collapsed-day-"] {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    white-space: normal !important;
+    word-break: normal !important;
+    overflow-wrap: break-word !important;
+  }
+}
