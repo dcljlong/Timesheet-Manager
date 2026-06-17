@@ -218,6 +218,7 @@ export default function TimesheetForm() {
   };
   const [pmEditReason, setPmEditReason] = useState("");
   const isPmEditing = isEditing && user?.role === "project_manager";
+  const [collapsedMobileDays, setCollapsedMobileDays] = useState({});
 
   // TEMP submit handler (restore runtime stability)
   
@@ -283,6 +284,98 @@ export default function TimesheetForm() {
 
   const getTaskCodesForEntry = (entry) => getTaskCodesForJob(entry?.job_number);
 
+  // TIMESHEET MANAGER / MOBILE DAY COLLAPSE V1
+  // Mobile-only completion summary for collapsible day cards. Desktop table remains unchanged.
+  const getMobileDaySummary = (day, dayIndex) => {
+    const dayName = day?.day || DAYS[dayIndex] || "";
+    const entries = Array.isArray(day?.entries) ? day.entries : [];
+    const isWeekend = dayName === "Saturday" || dayName === "Sunday";
+    const total = getDayTotal(dayIndex);
+
+    const entryHasValue = (entry = {}) => {
+      return [
+        entry.type,
+        entry.start_time,
+        entry.finish_time,
+        entry.job_number,
+        entry.task_code,
+        entry.project_manager_id,
+        entry.description,
+        entry.other
+      ].some((value) => value !== null && value !== undefined && String(value).trim() !== "") ||
+        (parseFloat(entry.total_hours) || 0) > 0;
+    };
+
+    const entryIsComplete = (entry = {}) => {
+      const type = normaliseEntryType(entry.type || "");
+
+      if (["unpaid_day_off", "annual_leave", "sick", "public_holiday"].includes(type)) {
+        return true;
+      }
+
+      if (type !== "work") {
+        return false;
+      }
+
+      return Boolean(
+        entry.start_time &&
+        entry.finish_time &&
+        entry.job_number &&
+        entry.task_code &&
+        entry.project_manager_id &&
+        (parseFloat(entry.total_hours) || 0) > 0
+      );
+    };
+
+    const meaningfulEntries = entries.filter(entryHasValue);
+
+    if (meaningfulEntries.length === 0) {
+      return isWeekend
+        ? {
+            label: "Optional",
+            detail: "No weekend entry",
+            badgeClass: "bg-gray-100 text-gray-700 border-gray-200"
+          }
+        : {
+            label: "Needs info",
+            detail: "No weekday entry",
+            badgeClass: "bg-amber-100 text-amber-900 border-amber-200"
+          };
+    }
+
+    const hasIncomplete = meaningfulEntries.some((entry) => !entryIsComplete(entry));
+
+    if (hasIncomplete) {
+      return {
+        label: "Needs info",
+        detail: `${meaningfulEntries.length} entr${meaningfulEntries.length === 1 ? "y" : "ies"} / ${total.toFixed(2)} hrs`,
+        badgeClass: "bg-amber-100 text-amber-900 border-amber-200"
+      };
+    }
+
+    return {
+      label: "Complete",
+      detail: `${meaningfulEntries.length} entr${meaningfulEntries.length === 1 ? "y" : "ies"} / ${total.toFixed(2)} hrs`,
+      badgeClass: "bg-emerald-100 text-emerald-900 border-emerald-200"
+    };
+  };
+
+  const toggleMobileDayCollapsed = (dayIndex) => {
+    setCollapsedMobileDays((current) => ({
+      ...current,
+      [dayIndex]: !current[dayIndex]
+    }));
+  };
+
+  const setAllMobileDaysCollapsed = (collapsed) => {
+    const next = {};
+    DAYS.forEach((_, index) => {
+      next[index] = collapsed;
+    });
+    setCollapsedMobileDays(next);
+  };
+
+  const allMobileDaysCollapsed = days.length > 0 && days.every((_, index) => !!collapsedMobileDays[index]);
 const updateEntry = (dayIndex, entryIndex, field, value) => {
   setDays(prev => {
     const copy = [...prev];
@@ -1158,268 +1251,355 @@ const handleSubmit = async (e) => {
 
           {/* Mobile Timesheet Day Cards */}
           <div className="lg:hidden w-full max-w-full min-w-0 overflow-x-hidden space-y-4 mb-6" data-testid="timesheet-mobile-grid">
-            {days.map((day, dayIndex) => (
-              <div key={day.day || dayIndex} className="card p-3 w-full max-w-full min-w-0 overflow-hidden" data-testid={"mobile-day-card-" + dayIndex}>
-                                <div className="mobile-day-header mb-3 space-y-2" data-testid={"mobile-day-header-" + dayIndex}>
-                  <div className="min-w-0">
-                    <h2 className="mobile-day-title text-xl font-black tracking-tight text-gray-950">{day.day}</h2>
-                    <p className="text-[12px] leading-snug text-gray-500">
-                      Day total: <span className="font-semibold text-gray-800">{getDayTotal(dayIndex).toFixed(2)} hrs</span>
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full px-2 py-2 text-[12px] font-semibold"
-                      onClick={() => addEntry(dayIndex)}
-                      data-testid={"mobile-add-entry-" + dayIndex}
-                    >
-                      Add Task Entry
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      className="w-full px-2 py-2 text-[12px] font-semibold text-red-700"
-                      onClick={() => clearDay(dayIndex)}
-                      disabled={!day.entries || day.entries.length === 0}
-                      data-testid={"mobile-clear-day-" + dayIndex}
-                    >
-                      Clear Day
-                    </Button>
-                  </div>
+            <div className="card p-3 border border-amber-200 bg-amber-50/70" data-testid="mobile-day-overview">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-black text-gray-950">Week overview</div>
+                  <div className="text-[11px] font-semibold text-gray-600">Minimise days to check completion at a glance.</div>
                 </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="shrink-0 px-2 py-2 text-[11px] font-bold"
+                  onClick={() => setAllMobileDaysCollapsed(!allMobileDaysCollapsed)}
+                  data-testid="mobile-toggle-all-days"
+                >
+                  {allMobileDaysCollapsed ? "Expand all" : "Minimise all"}
+                </Button>
+              </div>
 
-                <div className="space-y-3">
-                  {(!day.entries || day.entries.length === 0) && (
-                    <div
-                      className="rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 p-4 text-center text-sm font-semibold text-gray-600"
-                      data-testid={"mobile-empty-day-" + dayIndex}
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {days.map((summaryDay, summaryIndex) => {
+                  const summary = getMobileDaySummary(summaryDay, summaryIndex);
+                  const collapsed = !!collapsedMobileDays[summaryIndex];
+
+                  return (
+                    <button
+                      key={"mobile-summary-" + (summaryDay.day || summaryIndex)}
+                      type="button"
+                      className="rounded-lg border border-amber-200 bg-white px-2 py-2 text-left shadow-sm"
+                      onClick={() => toggleMobileDayCollapsed(summaryIndex)}
+                      data-testid={"mobile-day-summary-" + summaryIndex}
                     >
-                      No entries for this day. Leave blank, or tap Add Task Entry to record work or leave.
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate text-[12px] font-black text-gray-950">{summaryDay.day}</span>
+                        <span className="text-[10px] font-bold text-gray-500">{collapsed ? "Closed" : "Open"}</span>
+                      </div>
+                      <div className="mt-1 flex items-center justify-between gap-2">
+                        <span className={"inline-flex rounded-full border px-2 py-0.5 text-[10px] font-black " + summary.badgeClass}>
+                          {summary.label}
+                        </span>
+                        <span className="text-[11px] font-bold text-gray-700">{getDayTotal(summaryIndex).toFixed(2)} hrs</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {days.map((day, dayIndex) => {
+              const daySummary = getMobileDaySummary(day, dayIndex);
+              const isMobileDayCollapsed = !!collapsedMobileDays[dayIndex];
+
+              return (
+                <div key={day.day || dayIndex} className="card p-3 w-full max-w-full min-w-0 overflow-hidden" data-testid={"mobile-day-card-" + dayIndex}>
+                  <div className="mobile-day-header mb-3 space-y-3" data-testid={"mobile-day-header-" + dayIndex}>
+                    <div className="flex items-start justify-between gap-3">
+                      <button
+                        type="button"
+                        className="min-w-0 flex-1 text-left"
+                        onClick={() => toggleMobileDayCollapsed(dayIndex)}
+                        aria-expanded={!isMobileDayCollapsed}
+                        data-testid={"mobile-toggle-day-" + dayIndex}
+                      >
+                        <h2 className="mobile-day-title text-xl font-black tracking-tight text-gray-950">{day.day}</h2>
+                        <p className="text-[12px] leading-snug text-gray-500">
+                          Day total: <span className="font-semibold text-gray-800">{getDayTotal(dayIndex).toFixed(2)} hrs</span>
+                        </p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <span className={"inline-flex rounded-full border px-2 py-0.5 text-[11px] font-black " + daySummary.badgeClass}>
+                            {daySummary.label}
+                          </span>
+                          <span className="text-[11px] font-semibold text-gray-500">{daySummary.detail}</span>
+                        </div>
+                      </button>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="shrink-0 px-2 py-2 text-[11px] font-bold"
+                        onClick={() => toggleMobileDayCollapsed(dayIndex)}
+                        data-testid={"mobile-collapse-day-" + dayIndex}
+                      >
+                        {isMobileDayCollapsed ? "Expand" : "Minimise"}
+                      </Button>
                     </div>
-                  )}
-                  {(day.entries || []).map((entry, entryIndex) => (
-                    <div
-                      key={dayIndex + "-" + entryIndex}
-                      className={
-                        "mobile-entry-card mobile-entry-card-" +
-                        ((entryIndex % 4) + 1) +
-                        " w-full max-w-full min-w-0 overflow-hidden rounded-lg border p-3 shadow-sm"
-                      }
-                      data-testid={"mobile-entry-" + dayIndex + "-" + entryIndex}
-                    >
-                      <div className="flex items-center justify-between gap-3 mb-3">
-                        <div className="mobile-entry-line-label text-[15px] font-black uppercase tracking-wide text-amber-900">
-                          Task Entry {entryIndex + 1}
-                        </div>
-                        <div className="text-sm font-bold text-gray-900">
-                          {(parseFloat(entry.total_hours) || 0).toFixed(2)} hrs
-                        </div>
-                      </div>
 
-                      <div className="grid grid-cols-1 gap-3">
-                        <div>
-                          <Label className="text-[11px]">Type</Label>
-                          <select
-                            value={entry.type || ""}
-                            onChange={(e) => updateEntry(dayIndex, entryIndex, "type", e.target.value)}
-                            className="mobile-entry-field mt-1 h-12 w-full rounded-md px-3 text-base font-bold"
-                            data-testid={"mobile-type-" + dayIndex + "-" + entryIndex}
-                          >
-                            <option value="" disabled>Select type</option>
-                            <option value="work">Work</option>
-                            <option value="unpaid_day_off">No Work</option>
-                            <option value="public_holiday">Public Holiday</option>
-                            <option value="annual_leave">Annual Leave</option>
-                            <option value="sick">Sick</option>
-                          </select>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          <div>
-                            <Label className="text-[11px]">Start</Label>
-                            <Input
-                              type="text"
-                              inputMode="text"
-                              placeholder={getMobileDefaultTimeLabel("start_time")}
-                              value={formatTimeForMobileInput(entry.start_time)}
-                              disabled={isLeaveType(entry.type)}
-                              onFocus={(e) => {
-                                e.currentTarget.select();
-                              }}
-                              onClick={(e) => {
-                                e.currentTarget.select();
-                              }}
-                              onChange={(e) => updateEntry(dayIndex, entryIndex, "start_time", e.target.value)}
-                              onBlur={(e) => applyManualEntryTime(dayIndex, entryIndex, "start_time", e.target.value)}
-                              onKeyDown={(e) => handleManualTimeKeyDown(e, dayIndex, entryIndex, "start_time")}
-                              className="mobile-entry-field mobile-time-entry-input mt-1 h-12 text-base font-bold"
-                              data-testid={"mobile-start-" + dayIndex + "-" + entryIndex}
-                            />
-                            <div className="mobile-time-button-row mt-1 grid grid-cols-2 gap-1">
-                              <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => setEntryDefaultTime(dayIndex, entryIndex, "start_time")} data-testid={"mobile-start-use-default-" + dayIndex + "-" + entryIndex}>Use {getMobileDefaultTimeLabel("start_time")}</Button>
-                              <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => setEntryRoundedNow(dayIndex, entryIndex, "start_time")} data-testid={"mobile-start-now-round-" + dayIndex + "-" + entryIndex}>Now</Button>
-                            </div>
-
-                          </div>
-                          <div>
-                            <Label className="text-[11px]">Finish</Label>
-                            <Input
-                              type="text"
-                              inputMode="text"
-                              placeholder={getMobileDefaultTimeLabel("finish_time")}
-                              value={formatTimeForMobileInput(entry.finish_time)}
-                              disabled={isLeaveType(entry.type)}
-                              onFocus={(e) => {
-                                e.currentTarget.select();
-                              }}
-                              onClick={(e) => {
-                                e.currentTarget.select();
-                              }}
-                              onChange={(e) => updateEntry(dayIndex, entryIndex, "finish_time", e.target.value)}
-                              onBlur={(e) => applyManualEntryTime(dayIndex, entryIndex, "finish_time", e.target.value)}
-                              onKeyDown={(e) => handleManualTimeKeyDown(e, dayIndex, entryIndex, "finish_time")}
-                              className="mobile-entry-field mobile-time-entry-input mt-1 h-12 text-base font-bold"
-                              data-testid={"mobile-finish-" + dayIndex + "-" + entryIndex}
-                            />
-                            <div className="mobile-time-button-row mt-1 grid grid-cols-2 gap-1">
-                              <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => setEntryDefaultTime(dayIndex, entryIndex, "finish_time")} data-testid={"mobile-finish-use-default-" + dayIndex + "-" + entryIndex}>Use {getMobileDefaultTimeLabel("finish_time")}</Button>
-                              <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => setEntryRoundedNow(dayIndex, entryIndex, "finish_time")} data-testid={"mobile-finish-now-round-" + dayIndex + "-" + entryIndex}>Now</Button>
-                            </div>
-
-                          </div>
-                        </div>
-
-                        <div>
-                          <Label className="text-[11px]">Lunch</Label>
-                          <Select
-                            value={entry.lunch_duration || defaults?.lunch_duration || DEFAULT_MOBILE_TIME_DEFAULTS.lunch_duration}
-                            disabled={isLeaveType(entry.type)}
-                            onValueChange={(v) => {
-                              updateEntry(dayIndex, entryIndex, "lunch_duration", v);
-                              saveMobileTimeDefaults({ lunch_duration: v });
-                            }}
-                          >
-                            <SelectTrigger className="mobile-entry-field mt-1 h-12 w-full text-base font-bold" data-testid={"mobile-lunch-" + dayIndex + "-" + entryIndex}>
-                              <SelectValue placeholder="Select lunch" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="0">No lunch</SelectItem>
-                              <SelectItem value="30">30 minutes</SelectItem>
-                              <SelectItem value="60">60 minutes</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div>
-                          <Label className="text-[11px]">Job</Label>
-                          <Select
-                            value={entry.job_number || ""}
-                            disabled={isLeaveType(entry.type)}
-                            onValueChange={(v) => updateEntry(dayIndex, entryIndex, "job_number", v)}
-                          >
-                            <SelectTrigger className="mobile-entry-field mt-1 h-12 w-full text-base font-bold">
-                              <SelectValue placeholder="Select Job" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {jobNumbers.map((job) => (
-                                <SelectItem key={job.id} value={job.job_number}>
-                                  {job.job_number}{job.description ? " - " + job.description : ""}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div>
-                          <Label className="text-[11px]">Task</Label>
-                          <Select
-                            value={entry.task_code || ""}
-                            disabled={isLeaveType(entry.type) || !entry.job_number}
-                            onValueChange={(v) => updateEntry(dayIndex, entryIndex, "task_code", v)}
-                          >
-                            <SelectTrigger className="mobile-entry-field mt-1 h-12 w-full text-base font-bold">
-                              <SelectValue placeholder="Select Task" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {getTaskCodesForEntry(entry).map((tc) => (
-                                <SelectItem key={tc.id} value={tc.code}>
-                                  {tc.code} - {tc.description}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div>
-                          <Label className="text-[11px]">Project Manager</Label>
-                          <Select
-                            value={entry.project_manager_id || ""}
-                            disabled={isLeaveType(entry.type)}
-                            onValueChange={(v) => updateEntry(dayIndex, entryIndex, "project_manager_id", v)}
-                          >
-                            <SelectTrigger className="mobile-entry-field mt-1 h-12 w-full text-base font-bold">
-                              <SelectValue placeholder="Select PM" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {projectManagers.map((pm) => (
-                                <SelectItem key={pm.id} value={pm.id}>
-                                  {pm.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div>
-                          <Label className="text-[11px]">Description</Label>
-                          <Textarea
-                            value={entry.description || entry.other || ""}
-                            onChange={(e) => updateEntry(dayIndex, entryIndex, "description", e.target.value)}
-                            className="mobile-entry-field mt-1 min-h-[88px] text-base font-semibold"
-                            rows={2}
-                            data-testid={"mobile-description-" + dayIndex + "-" + entryIndex}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="mobile-entry-action-row mt-3 grid grid-cols-3 gap-1">
+                    {!isMobileDayCollapsed && (
+                      <div className="grid grid-cols-2 gap-2">
                         <Button
                           type="button"
                           variant="outline"
-                          className="w-full px-1 py-1 text-[10px]"
-                          disabled={isLeaveType(entry.type)}
-                          onClick={() => startEntryNow(dayIndex, entryIndex)}
-                          data-testid={"mobile-start-now-" + dayIndex + "-" + entryIndex}
+                          className="w-full px-2 py-2 text-[12px] font-semibold"
+                          onClick={() => addEntry(dayIndex)}
+                          data-testid={"mobile-add-entry-" + dayIndex}
                         >
-                          Start now
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="w-full px-1 py-1 text-[10px]"
-                          disabled={isLeaveType(entry.type)}
-                          onClick={() => finishEntryNow(dayIndex, entryIndex)}
-                          data-testid={"mobile-finish-now-" + dayIndex + "-" + entryIndex}
-                        >
-                          Finish now
+                          Add Task Entry
                         </Button>
                         <Button
                           type="button"
                           variant="ghost"
-                          className="w-full px-1 py-1 text-[10px] text-red-600"
-                          onClick={() => removeEntry(dayIndex, entryIndex)}
-                          data-testid={"mobile-clear-" + dayIndex + "-" + entryIndex}
+                          className="w-full px-2 py-2 text-[12px] font-semibold text-red-700"
+                          onClick={() => clearDay(dayIndex)}
+                          disabled={!day.entries || day.entries.length === 0}
+                          data-testid={"mobile-clear-day-" + dayIndex}
                         >
-                          Clear
+                          Clear Day
                         </Button>
                       </div>
+                    )}
+                  </div>
+
+                  {isMobileDayCollapsed ? (
+                    <div
+                      className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-3 text-sm font-semibold text-gray-700"
+                      data-testid={"mobile-collapsed-day-" + dayIndex}
+                    >
+                      {daySummary.label} - {getDayTotal(dayIndex).toFixed(2)} hrs. Tap Expand to edit this day.
                     </div>
-                  ))}
+                  ) : (
+                    <div className="space-y-3">
+                      {(!day.entries || day.entries.length === 0) && (
+                        <div
+                          className="rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 p-4 text-center text-sm font-semibold text-gray-600"
+                          data-testid={"mobile-empty-day-" + dayIndex}
+                        >
+                          No entries for this day. Leave blank, or tap Add Task Entry to record work or leave.
+                        </div>
+                      )}
+
+                      {(day.entries || []).map((entry, entryIndex) => (
+                        <div
+                          key={dayIndex + "-" + entryIndex}
+                          className={
+                            "mobile-entry-card mobile-entry-card-" +
+                            ((entryIndex % 4) + 1) +
+                            " w-full max-w-full min-w-0 overflow-hidden rounded-lg border p-3 shadow-sm"
+                          }
+                          data-testid={"mobile-entry-" + dayIndex + "-" + entryIndex}
+                        >
+                          <div className="flex items-center justify-between gap-3 mb-3">
+                            <div className="mobile-entry-line-label text-[15px] font-black uppercase tracking-wide text-amber-900">
+                              Task Entry {entryIndex + 1}
+                            </div>
+                            <div className="text-sm font-bold text-gray-900">
+                              {(parseFloat(entry.total_hours) || 0).toFixed(2)} hrs
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-3">
+                            <div>
+                              <Label className="text-[11px]">Type</Label>
+                              <select
+                                value={entry.type || ""}
+                                onChange={(e) => updateEntry(dayIndex, entryIndex, "type", e.target.value)}
+                                className="mobile-entry-field mt-1 h-12 w-full rounded-md px-3 text-base font-bold"
+                                data-testid={"mobile-type-" + dayIndex + "-" + entryIndex}
+                              >
+                                <option value="" disabled>Select type</option>
+                                <option value="work">Work</option>
+                                <option value="unpaid_day_off">No Work</option>
+                                <option value="public_holiday">Public Holiday</option>
+                                <option value="annual_leave">Annual Leave</option>
+                                <option value="sick">Sick</option>
+                              </select>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              <div>
+                                <Label className="text-[11px]">Start</Label>
+                                <Input
+                                  type="text"
+                                  inputMode="text"
+                                  placeholder={getMobileDefaultTimeLabel("start_time")}
+                                  value={formatTimeForMobileInput(entry.start_time)}
+                                  disabled={isLeaveType(entry.type)}
+                                  onFocus={(e) => {
+                                    e.currentTarget.select();
+                                  }}
+                                  onClick={(e) => {
+                                    e.currentTarget.select();
+                                  }}
+                                  onChange={(e) => updateEntry(dayIndex, entryIndex, "start_time", e.target.value)}
+                                  onBlur={(e) => applyManualEntryTime(dayIndex, entryIndex, "start_time", e.target.value)}
+                                  onKeyDown={(e) => handleManualTimeKeyDown(e, dayIndex, entryIndex, "start_time")}
+                                  className="mobile-entry-field mobile-time-entry-input mt-1 h-12 text-base font-bold"
+                                  data-testid={"mobile-start-" + dayIndex + "-" + entryIndex}
+                                />
+                                <div className="mobile-time-button-row mt-1 grid grid-cols-2 gap-1">
+                                  <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => setEntryDefaultTime(dayIndex, entryIndex, "start_time")} data-testid={"mobile-start-use-default-" + dayIndex + "-" + entryIndex}>Use {getMobileDefaultTimeLabel("start_time")}</Button>
+                                  <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => setEntryRoundedNow(dayIndex, entryIndex, "start_time")} data-testid={"mobile-start-now-round-" + dayIndex + "-" + entryIndex}>Now</Button>
+                                </div>
+                              </div>
+
+                              <div>
+                                <Label className="text-[11px]">Finish</Label>
+                                <Input
+                                  type="text"
+                                  inputMode="text"
+                                  placeholder={getMobileDefaultTimeLabel("finish_time")}
+                                  value={formatTimeForMobileInput(entry.finish_time)}
+                                  disabled={isLeaveType(entry.type)}
+                                  onFocus={(e) => {
+                                    e.currentTarget.select();
+                                  }}
+                                  onClick={(e) => {
+                                    e.currentTarget.select();
+                                  }}
+                                  onChange={(e) => updateEntry(dayIndex, entryIndex, "finish_time", e.target.value)}
+                                  onBlur={(e) => applyManualEntryTime(dayIndex, entryIndex, "finish_time", e.target.value)}
+                                  onKeyDown={(e) => handleManualTimeKeyDown(e, dayIndex, entryIndex, "finish_time")}
+                                  className="mobile-entry-field mobile-time-entry-input mt-1 h-12 text-base font-bold"
+                                  data-testid={"mobile-finish-" + dayIndex + "-" + entryIndex}
+                                />
+                                <div className="mobile-time-button-row mt-1 grid grid-cols-2 gap-1">
+                                  <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => setEntryDefaultTime(dayIndex, entryIndex, "finish_time")} data-testid={"mobile-finish-use-default-" + dayIndex + "-" + entryIndex}>Use {getMobileDefaultTimeLabel("finish_time")}</Button>
+                                  <Button type="button" variant="outline" className="px-1 py-1 text-[10px]" disabled={isLeaveType(entry.type)} onClick={() => setEntryRoundedNow(dayIndex, entryIndex, "finish_time")} data-testid={"mobile-finish-now-round-" + dayIndex + "-" + entryIndex}>Now</Button>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div>
+                              <Label className="text-[11px]">Lunch</Label>
+                              <Select
+                                value={entry.lunch_duration || defaults?.lunch_duration || DEFAULT_MOBILE_TIME_DEFAULTS.lunch_duration}
+                                disabled={isLeaveType(entry.type)}
+                                onValueChange={(v) => {
+                                  updateEntry(dayIndex, entryIndex, "lunch_duration", v);
+                                  saveMobileTimeDefaults({ lunch_duration: v });
+                                }}
+                              >
+                                <SelectTrigger className="mobile-entry-field mt-1 h-12 w-full text-base font-bold" data-testid={"mobile-lunch-" + dayIndex + "-" + entryIndex}>
+                                  <SelectValue placeholder="Select lunch" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="0">No lunch</SelectItem>
+                                  <SelectItem value="30">30 minutes</SelectItem>
+                                  <SelectItem value="60">60 minutes</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div>
+                              <Label className="text-[11px]">Job</Label>
+                              <Select
+                                value={entry.job_number || ""}
+                                disabled={isLeaveType(entry.type)}
+                                onValueChange={(v) => updateEntry(dayIndex, entryIndex, "job_number", v)}
+                              >
+                                <SelectTrigger className="mobile-entry-field mt-1 h-12 w-full text-base font-bold">
+                                  <SelectValue placeholder="Select Job" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {jobNumbers.map((job) => (
+                                    <SelectItem key={job.id} value={job.job_number}>
+                                      {job.job_number}{job.description ? " - " + job.description : ""}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div>
+                              <Label className="text-[11px]">Task</Label>
+                              <Select
+                                value={entry.task_code || ""}
+                                disabled={isLeaveType(entry.type) || !entry.job_number}
+                                onValueChange={(v) => updateEntry(dayIndex, entryIndex, "task_code", v)}
+                              >
+                                <SelectTrigger className="mobile-entry-field mt-1 h-12 w-full text-base font-bold">
+                                  <SelectValue placeholder="Select Task" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {getTaskCodesForEntry(entry).map((tc) => (
+                                    <SelectItem key={tc.id} value={tc.code}>
+                                      {tc.code} - {tc.description}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div>
+                              <Label className="text-[11px]">Project Manager</Label>
+                              <Select
+                                value={entry.project_manager_id || ""}
+                                disabled={isLeaveType(entry.type)}
+                                onValueChange={(v) => updateEntry(dayIndex, entryIndex, "project_manager_id", v)}
+                              >
+                                <SelectTrigger className="mobile-entry-field mt-1 h-12 w-full text-base font-bold">
+                                  <SelectValue placeholder="Select PM" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {projectManagers.map((pm) => (
+                                    <SelectItem key={pm.id} value={pm.id}>
+                                      {pm.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div>
+                              <Label className="text-[11px]">Description</Label>
+                              <Textarea
+                                value={entry.description || entry.other || ""}
+                                onChange={(e) => updateEntry(dayIndex, entryIndex, "description", e.target.value)}
+                                className="mobile-entry-field mt-1 min-h-[88px] text-base font-semibold"
+                                rows={2}
+                                data-testid={"mobile-description-" + dayIndex + "-" + entryIndex}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="mobile-entry-action-row mt-3 grid grid-cols-3 gap-1">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="w-full px-1 py-1 text-[10px]"
+                              disabled={isLeaveType(entry.type)}
+                              onClick={() => startEntryNow(dayIndex, entryIndex)}
+                              data-testid={"mobile-start-now-" + dayIndex + "-" + entryIndex}
+                            >
+                              Start now
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="w-full px-1 py-1 text-[10px]"
+                              disabled={isLeaveType(entry.type)}
+                              onClick={() => finishEntryNow(dayIndex, entryIndex)}
+                              data-testid={"mobile-finish-now-" + dayIndex + "-" + entryIndex}
+                            >
+                              Finish now
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              className="w-full px-1 py-1 text-[10px] text-red-600"
+                              onClick={() => removeEntry(dayIndex, entryIndex)}
+                              data-testid={"mobile-clear-" + dayIndex + "-" + entryIndex}
+                            >
+                              Clear
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             <div className="card p-3 bg-gray-900 text-white" data-testid="timesheet-mobile-totals">
               <div className="text-sm font-bold mb-2">Totals</div>
@@ -1438,8 +1618,7 @@ const handleSubmit = async (e) => {
                 <div className="border-t border-white/20 pt-2 text-right text-base font-bold">{getTotalHours().toFixed(2)} hrs</div>
               </div>
             </div>
-          </div>
-          {/* Timesheet Grid */}
+          </div>          {/* Timesheet Grid */}
           <div className="hidden lg:block card mb-6 overflow-x-auto" data-testid="timesheet-grid">
             <table className="w-full text-[11px]">
               <thead>
