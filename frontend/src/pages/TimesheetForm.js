@@ -945,7 +945,7 @@ const handleSubmit = async (e) => {
 
     if (isEditing && id) {
       await axios.put(`${API}/timesheets/${id}`, payload, { withCredentials: true });
-      toast.success("Timesheet updated");
+      toast.success("Timesheet updated and returned for approval");
     } else {
       await axios.post(`${API}/timesheets`, payload, { withCredentials: true });
       toast.success("Timesheet submitted");
@@ -1727,7 +1727,7 @@ const handleSubmit = async (e) => {
               data-testid="submit-button"
             >
               <Save className="w-4 h-4 mr-2" />
-              {saving ? "Saving..." : isEditing ? "Update Timesheet" : "Submit Timesheet"}
+              {saving ? "Saving..." : isEditing ? "Update & Return for Approval" : "Submit Timesheet"}
             </Button>
           </div>
           </form>
