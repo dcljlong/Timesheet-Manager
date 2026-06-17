@@ -360,6 +360,47 @@ export default function TimesheetForm() {
     };
   };
 
+  // TIMESHEET MANAGER / MOBILE COLLAPSED DAY WORK TYPE V1
+  // Shows the entry type beside Complete / Needs info in collapsed mobile day summaries.
+  const getMobileDayWorkTypeLabel = (day) => {
+    const entries = Array.isArray(day?.entries) ? day.entries : [];
+
+    const entryHasValue = (entry = {}) => {
+      return [
+        entry.type,
+        entry.start_time,
+        entry.finish_time,
+        entry.job_number,
+        entry.task_code,
+        entry.project_manager_id,
+        entry.description,
+        entry.other
+      ].some((value) => value !== null && value !== undefined && String(value).trim() !== "") ||
+        (parseFloat(entry.total_hours) || 0) > 0;
+    };
+
+    const typeLabelMap = {
+      work: "Work",
+      unpaid_day_off: "No Work",
+      public_holiday: "Public Holiday",
+      annual_leave: "Annual Leave",
+      sick: "Sick"
+    };
+
+    const labels = Array.from(
+      new Set(
+        entries
+          .filter(entryHasValue)
+          .map((entry) => normaliseEntryType(entry.type || "work"))
+          .map((type) => typeLabelMap[type] || "Other")
+      )
+    );
+
+    if (labels.length === 0) return "Not set";
+    if (labels.length === 1) return labels[0];
+    if (labels.length === 2) return labels.join(" + ");
+    return "Mixed";
+  };
   const toggleMobileDayCollapsed = (dayIndex) => {
     setCollapsedMobileDays((current) => ({
       ...current,
@@ -1271,6 +1312,7 @@ const handleSubmit = async (e) => {
               <div className="mt-3 grid grid-cols-2 gap-2">
                 {days.map((summaryDay, summaryIndex) => {
                   const summary = getMobileDaySummary(summaryDay, summaryIndex);
+                  const workTypeLabel = getMobileDayWorkTypeLabel(summaryDay);
                   const collapsed = !!collapsedMobileDays[summaryIndex];
 
                   return (
@@ -1289,6 +1331,9 @@ const handleSubmit = async (e) => {
                         <span className={"inline-flex rounded-full border px-2 py-0.5 text-[10px] font-black " + summary.badgeClass}>
                           {summary.label}
                         </span>
+                        <span className="inline-flex rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-black text-gray-700">
+                          {workTypeLabel}
+                        </span>
                         <span className="text-[11px] font-bold text-gray-700">{getDayTotal(summaryIndex).toFixed(2)} hrs</span>
                       </div>
                     </button>
@@ -1299,6 +1344,7 @@ const handleSubmit = async (e) => {
 
             {days.map((day, dayIndex) => {
               const daySummary = getMobileDaySummary(day, dayIndex);
+              const dayWorkTypeLabel = getMobileDayWorkTypeLabel(day);
               const isMobileDayCollapsed = !!collapsedMobileDays[dayIndex];
 
               return (
@@ -1319,6 +1365,9 @@ const handleSubmit = async (e) => {
                         <div className="mt-2 flex flex-wrap items-center gap-2">
                           <span className={"inline-flex rounded-full border px-2 py-0.5 text-[11px] font-black " + daySummary.badgeClass}>
                             {daySummary.label}
+                          </span>
+                          <span className="inline-flex rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] font-black text-gray-700">
+                            {dayWorkTypeLabel}
                           </span>
                           <span className="text-[11px] font-semibold text-gray-500">{daySummary.detail}</span>
                         </div>
@@ -1365,7 +1414,7 @@ const handleSubmit = async (e) => {
                       className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-3 text-sm font-semibold text-gray-700"
                       data-testid={"mobile-collapsed-day-" + dayIndex}
                     >
-                      {daySummary.label} - {getDayTotal(dayIndex).toFixed(2)} hrs. Tap Expand to edit this day.
+                      {daySummary.label} - {dayWorkTypeLabel} - {getDayTotal(dayIndex).toFixed(2)} hrs. Tap Expand to edit this day.
                     </div>
                   ) : (
                     <div className="space-y-3">
