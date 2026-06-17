@@ -3792,3 +3792,98 @@ canvas.signature-canvas,
   -webkit-text-fill-color: #111827 !important;
   font-weight: 700 !important;
 }
+
+/* TIMESHEET MANAGER / MOBILE VIEWPORT DRIFT FINAL OVERRIDE V1
+   Purpose:
+   - prevent phone viewport drift caused by earlier 100vw / fixed min-width rules
+   - keep New Timesheet mobile card entry contained inside the visible screen
+   - do not change desktop/tablet layout
+*/
+@media (max-width: 767px) {
+  html,
+  body,
+  #root {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
+  }
+
+  body {
+    position: relative;
+    touch-action: pan-y;
+  }
+
+  .tm-app-shell,
+  .tm-main-shell,
+  .tm-main-content,
+  .tm-page,
+  .tm-page-content,
+  .tm-content,
+  main,
+  [data-testid="timesheet-form"],
+  [data-testid="timesheet-page"],
+  [data-testid="timesheet-mobile-list"],
+  [data-testid="timesheet-mobile-card"],
+  [data-testid^="mobile-day"],
+  [data-testid^="mobile-entry"],
+  .timesheet-mobile-card,
+  .mobile-timesheet-entry {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+  }
+
+  [data-testid="timesheet-form"] *,
+  [data-testid="timesheet-page"] *,
+  [data-testid="timesheet-mobile-list"] *,
+  [data-testid="timesheet-mobile-card"] *,
+  [data-testid^="mobile-day"] *,
+  [data-testid^="mobile-entry"] *,
+  .timesheet-mobile-card *,
+  .mobile-timesheet-entry * {
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  [data-testid="timesheet-form"] input,
+  [data-testid="timesheet-form"] select,
+  [data-testid="timesheet-form"] textarea,
+  [data-testid="timesheet-form"] button,
+  [data-testid="timesheet-page"] input,
+  [data-testid="timesheet-page"] select,
+  [data-testid="timesheet-page"] textarea,
+  [data-testid="timesheet-page"] button,
+  .timesheet-mobile-card input,
+  .timesheet-mobile-card select,
+  .timesheet-mobile-card textarea,
+  .timesheet-mobile-card button,
+  .mobile-timesheet-entry input,
+  .mobile-timesheet-entry select,
+  .mobile-timesheet-entry textarea,
+  .mobile-timesheet-entry button {
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  [data-testid="timesheet-form"] .overflow-x-auto,
+  [data-testid="timesheet-page"] .overflow-x-auto {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  [data-testid="timesheet-form"] table {
+    max-width: 100% !important;
+  }
+
+  .mobile-day-header,
+  .mobile-timesheet-entry,
+  .timesheet-mobile-card {
+    transform: none !important;
+    contain: layout paint;
+  }
+}
