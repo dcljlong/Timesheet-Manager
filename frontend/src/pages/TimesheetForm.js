@@ -396,7 +396,7 @@ export default function TimesheetForm() {
       )
     );
 
-    if (labels.length === 0) return "Not set";
+    if (labels.length === 0) return "Not Set";
     if (labels.length === 1) return labels[0];
     if (labels.length === 2) return labels.join(" + ");
     return "Mixed";
@@ -1319,22 +1319,27 @@ const handleSubmit = async (e) => {
                     <button
                       key={"mobile-summary-" + (summaryDay.day || summaryIndex)}
                       type="button"
-                      className="rounded-lg border border-amber-200 bg-white px-2 py-2 text-left shadow-sm"
+                      className="min-w-0 rounded-lg border border-amber-200 bg-white px-2 py-2 text-left shadow-sm"
                       onClick={() => toggleMobileDayCollapsed(summaryIndex)}
                       data-testid={"mobile-day-summary-" + summaryIndex}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="truncate text-[12px] font-black text-gray-950">{summaryDay.day}</span>
-                        <span className="text-[10px] font-bold text-gray-500">{collapsed ? "Closed" : "Open"}</span>
+                        <span className="min-w-0 truncate text-[12px] font-black leading-tight text-gray-950">{summaryDay.day}</span>
+                        <span className="shrink-0 whitespace-nowrap text-[10px] font-bold text-gray-500">{collapsed ? "Closed" : "Open"}</span>
                       </div>
-                      <div className="mt-1 flex items-center justify-between gap-2">
-                        <span className={"inline-flex rounded-full border px-2 py-0.5 text-[10px] font-black " + summary.badgeClass}>
-                          {summary.label}
-                        </span>
-                        <span className="inline-flex rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-black text-gray-700">
-                          {workTypeLabel}
-                        </span>
-                        <span className="text-[11px] font-bold text-gray-700">{getDayTotal(summaryIndex).toFixed(2)} hrs</span>
+                      {/* TIMESHEET MANAGER / MOBILE WEEK OVERVIEW BADGE WRAP POLISH V1 */}
+                      <div className="mt-2 space-y-1.5">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className={"inline-flex shrink-0 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-black leading-none " + summary.badgeClass}>
+                            {summary.label}
+                          </span>
+                          <span className="inline-flex shrink-0 whitespace-nowrap rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-black leading-none text-gray-700">
+                            {workTypeLabel}
+                          </span>
+                        </div>
+                        <div className="text-right text-[12px] font-black leading-tight text-gray-800">
+                          {getDayTotal(summaryIndex).toFixed(2)} hrs
+                        </div>
                       </div>
                     </button>
                   );
