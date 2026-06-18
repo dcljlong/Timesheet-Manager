@@ -71,7 +71,7 @@ A company timesheet app with weekly/fortnightly timesheets. Features include: mu
 - [ ] Export to payroll systems (CSV)
 
 ## Test Credentials
-- Admin: admin@timesheet.com / admin123
+- Admin: admin email / <set-in-environment>
 
 ## Tech Stack
 - Backend: FastAPI + MongoDB

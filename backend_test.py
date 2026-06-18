@@ -64,7 +64,7 @@ class TimesheetAPITester:
             "POST",
             "auth/login",
             200,
-            data={"email": "admin@timesheet.com", "password": "admin123"}
+            data={"email": "admin@timesheet.com", "password": "<test-admin-password>"}
         )
         if success:
             self.admin_token = response.get('id')  # Store admin ID for later use

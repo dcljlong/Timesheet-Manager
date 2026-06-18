@@ -59,28 +59,31 @@ export default function Layout({ children }) {
 
   const roleNavItems = navItems[user?.role] || navItems.employee;
 
+  // TIMESHEET MANAGER / COMMERCIAL RELEASE SUITE LINK FALLBACK GUARD V1
+  const devOnlyUrl = (url) => (process.env.NODE_ENV === "production" ? "" : url);
+
   const suiteLinks = [
     {
-      href: process.env.REACT_APP_LONG_LINE_DIARY_URL || "http://localhost:3003/dashboard",
+      href: process.env.REACT_APP_LONG_LINE_DIARY_URL || devOnlyUrl("http://localhost:3003/dashboard"),
       label: "LLD",
       description: "Long Line Diary / Site diary",
       icon: FileText
     },
     {
-      href: process.env.REACT_APP_TOOL_TRACKER_URL || "http://localhost:3002/dashboard",
+      href: process.env.REACT_APP_TOOL_TRACKER_URL || devOnlyUrl("http://localhost:3002/dashboard"),
       label: "Tool Tracker",
       description: "Tool control",
       icon: Wrench
     },
     {
-      href: process.env.REACT_APP_FITOUTOS_URL || "http://localhost:3004/login",
+      href: process.env.REACT_APP_FITOUTOS_URL || devOnlyUrl("http://localhost:3004/login"),
       label: "FitoutOS",
       description: "Fitout planning",
       icon: Briefcase
     },
   ];
 
-  const visibleSuiteLinks = user?.role === "admin" || user?.role === "project_manager" ? suiteLinks : [];
+  const visibleSuiteLinks = user?.role === "admin" || user?.role === "project_manager" ? suiteLinks.filter((link) => Boolean(link.href)) : [];
   const displayName = user?.name || user?.email || "Timesheet User";
   const roleLabel = (user?.role || "user").replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 
