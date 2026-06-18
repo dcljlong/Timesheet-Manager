@@ -1309,39 +1309,31 @@ const handleSubmit = async (e) => {
                 </Button>
               </div>
 
-              <div className="mt-3 grid grid-cols-2 gap-2">
+              {/* TIMESHEET MANAGER / MOBILE WEEK OVERVIEW READONLY COMPACT ROWS V1 */}
+              <div className="mt-3 space-y-1.5" data-testid="mobile-week-overview-readonly-list">
                 {days.map((summaryDay, summaryIndex) => {
                   const summary = getMobileDaySummary(summaryDay, summaryIndex);
                   const workTypeLabel = getMobileDayWorkTypeLabel(summaryDay);
-                  const collapsed = !!collapsedMobileDays[summaryIndex];
 
                   return (
-                    <button
+                    <div
                       key={"mobile-summary-" + (summaryDay.day || summaryIndex)}
-                      type="button"
-                      className="min-w-0 rounded-lg border border-amber-200 bg-white px-2 py-2 text-left shadow-sm"
-                      onClick={() => toggleMobileDayCollapsed(summaryIndex)}
+                      className="grid min-w-0 grid-cols-[minmax(4.8rem,1fr)_auto_auto_auto] items-center gap-1.5 rounded-lg border border-amber-200 bg-white px-2 py-1.5 text-left shadow-sm"
                       data-testid={"mobile-day-summary-" + summaryIndex}
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="min-w-0 truncate text-[12px] font-black leading-tight text-gray-950">{summaryDay.day}</span>
-                        <span className="shrink-0 whitespace-nowrap text-[10px] font-bold text-gray-500">{collapsed ? "Closed" : "Open"}</span>
-                      </div>
-                      {/* TIMESHEET MANAGER / MOBILE WEEK OVERVIEW BADGE WRAP POLISH V1 */}
-                      <div className="mt-2 space-y-1.5">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span className={"inline-flex shrink-0 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-black leading-none " + summary.badgeClass}>
-                            {summary.label}
-                          </span>
-                          <span className="inline-flex shrink-0 whitespace-nowrap rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-black leading-none text-gray-700">
-                            {workTypeLabel}
-                          </span>
-                        </div>
-                        <div className="text-right text-[12px] font-black leading-tight text-gray-800">
-                          {getDayTotal(summaryIndex).toFixed(2)} hrs
-                        </div>
-                      </div>
-                    </button>
+                      <span className="min-w-0 truncate text-[12px] font-black leading-tight text-gray-950">
+                        {summaryDay.day}
+                      </span>
+                      <span className={"inline-flex shrink-0 whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[9px] font-black leading-none " + summary.badgeClass}>
+                        {summary.label}
+                      </span>
+                      <span className="inline-flex max-w-[5.8rem] shrink-0 truncate whitespace-nowrap rounded-full border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[9px] font-black leading-none text-gray-700">
+                        {workTypeLabel}
+                      </span>
+                      <span className="shrink-0 whitespace-nowrap text-right text-[11px] font-black leading-tight text-gray-800">
+                        {getDayTotal(summaryIndex).toFixed(2)} hrs
+                      </span>
+                    </div>
                   );
                 })}
               </div>
