@@ -1,13 +1,13 @@
 import axios from "axios";
 
-// TIMESHEET MANAGER / COMMERCIAL RELEASE API FALLBACK GUARD V1
+// TIMESHEET MANAGER / COMMERCIAL RELEASE API ENV-ONLY GUARD V3
 const configuredBackendUrl = process.env.REACT_APP_BACKEND_URL;
 
-if (process.env.NODE_ENV === "production" && !configuredBackendUrl) {
-  throw new Error("REACT_APP_BACKEND_URL is required in production.");
+if (!configuredBackendUrl) {
+  throw new Error("REACT_APP_BACKEND_URL is required.");
 }
 
-const BACKEND_URL = (configuredBackendUrl || "http://127.0.0.1:8000").replace(/\/$/, "");
+const BACKEND_URL = configuredBackendUrl.replace(/\/$/, "");
 export const API_BASE_URL = `${BACKEND_URL}/api`;
 
 const api = axios.create({
