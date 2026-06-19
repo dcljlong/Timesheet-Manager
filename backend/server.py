@@ -2599,82 +2599,95 @@ async def admin_approve_timesheet(timesheet_id: str, approval: TimesheetApproval
             }}
         )
         try:
-            auth_header = request.headers.get("Authorization", "")
-            rows = []
-            print("FITOUT SYNC START")
+            # TIMESHEET MANAGER / FITOUTOS ADMIN APPROVAL SYNC ENV GUARD V3
+            # Production-safe behaviour:
+            # - no hardcoded localhost target
+            # - sync is skipped cleanly unless FITOUTOS_LABOUR_IMPORT_URL is configured
+            # - approval response is never blocked by FitoutOS availability
+            fitoutos_import_url = (os.environ.get("FITOUTOS_LABOUR_IMPORT_URL") or "").strip()
+            fitoutos_import_token = (os.environ.get("FITOUTOS_LABOUR_IMPORT_TOKEN") or "").strip()
 
-            week_ending_value = timesheet.get("week_ending")
-            day_name_to_offset = {
-                "Monday": -6,
-                "Tuesday": -5,
-                "Wednesday": -4,
-                "Thursday": -3,
-                "Friday": -2,
-                "Saturday": -1,
-                "Sunday": 0
-            }
+            if not fitoutos_import_url:
+                print("FITOUT SYNC SKIPPED: FITOUTOS_LABOUR_IMPORT_URL not configured")
+            else:
+                rows = []
+                print("FITOUT SYNC START")
 
-            week_ending_date = None
-            if week_ending_value:
-                try:
-                    week_ending_date = datetime.fromisoformat(str(week_ending_value)).date()
-                except Exception:
-                    week_ending_date = None
+                week_ending_value = timesheet.get("week_ending")
+                day_name_to_offset = {
+                    "Monday": -6,
+                    "Tuesday": -5,
+                    "Wednesday": -4,
+                    "Thursday": -3,
+                    "Friday": -2,
+                    "Saturday": -1,
+                    "Sunday": 0
+                }
 
-            for day in timesheet.get("days", []):
-                day_name = day.get("day")
-                work_date = None
-
-                if week_ending_date and day_name in day_name_to_offset:
+                week_ending_date = None
+                if week_ending_value:
                     try:
-                        work_date = (week_ending_date + timedelta(days=day_name_to_offset[day_name])).isoformat()
+                        week_ending_date = datetime.fromisoformat(str(week_ending_value)).date()
                     except Exception:
-                        work_date = None
+                        week_ending_date = None
 
-                for entry in day.get("entries", []):
-                    try:
-                        hours = float(entry.get("total_hours", 0) or 0)
-                    except Exception:
-                        hours = 0
+                for day in timesheet.get("days", []):
+                    day_name = day.get("day")
+                    work_date = None
 
-                    if hours <= 0:
-                        continue
+                    if week_ending_date and day_name in day_name_to_offset:
+                        try:
+                            work_date = (week_ending_date + timedelta(days=day_name_to_offset[day_name])).isoformat()
+                        except Exception:
+                            work_date = None
 
-                    job_number = entry.get("job_number")
-                    if not job_number:
-                        continue
+                    for entry in day.get("entries", []):
+                        try:
+                            hours = float(entry.get("total_hours", 0) or 0)
+                        except Exception:
+                            hours = 0
 
-                    rows.append({
-                        "job_number": str(job_number),
-                        "task_code": entry.get("task_code"),
-"task_name": entry.get("task_name") or entry.get("description"),
-"description": entry.get("description"),
-"zone_area": entry.get("zone_area"),
-"task_id": entry.get("task_id"),
-"date": entry.get("date"),
-"hours": entry.get("hours"),
-"trade": entry.get("trade"),
-"source_id": entry.get("id"),
-                        "date": work_date or str(week_ending_value),
-                        "hours": hours
-                    })
+                        if hours <= 0:
+                            continue
 
-            print("FITOUT SYNC ROW COUNT:", len(rows))
-            if rows and auth_header.startswith("Bearer "):
-                payload = json.dumps({"rows": rows}).encode("utf-8")
-                req = urllib.request.Request(
-                    "http://127.0.0.1:8010/api/labour/import",
-                    data=payload,
-                    headers={
-                        "Content-Type": "application/json",
-                        "Authorization": auth_header
-                    },
-                    method="POST"
-                )
-                print("FITOUT SYNC POSTING")
-                with urllib.request.urlopen(req, timeout=10) as resp:
-                    print("FITOUT SYNC RESPONSE:", resp.status)
-                    resp.read()
+                        job_number = entry.get("job_number")
+                        if not job_number:
+                            continue
+
+                        rows.append({
+                            "job_number": str(job_number),
+                            "task_code": entry.get("task_code"),
+                            "task_name": entry.get("task_name") or entry.get("description"),
+                            "description": entry.get("description"),
+                            "zone_area": entry.get("zone_area"),
+                            "task_id": entry.get("task_id"),
+                            "trade": entry.get("trade"),
+                            "source_id": entry.get("id"),
+                            "date": work_date or str(week_ending_value),
+                            "hours": hours
+                        })
+
+                print("FITOUT SYNC ROW COUNT:", len(rows))
+
+                if rows:
+                    payload = json.dumps({"rows": rows}).encode("utf-8")
+                    headers = {
+                        "Content-Type": "application/json"
+                    }
+
+                    if fitoutos_import_token:
+                        headers["Authorization"] = f"Bearer {fitoutos_import_token}"
+
+                    req = urllib.request.Request(
+                        fitoutos_import_url,
+                        data=payload,
+                        headers=headers,
+                        method="POST"
+                    )
+                    print("FITOUT SYNC POSTING:", fitoutos_import_url)
+                    with urllib.request.urlopen(req, timeout=10) as resp:
+                        print("FITOUT SYNC RESPONSE:", resp.status)
+                        resp.read()
         except Exception as e:
             print("FITOUT AUTO SYNC ERROR:", str(e))
 
