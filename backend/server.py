@@ -36,6 +36,15 @@ JWT_ALGORITHM = "HS256"
 # Create the main app
 app = FastAPI(title="Timesheet App")
 
+# TIMESHEET MANAGER / ROOT BACKEND HEALTH ROUTES V1
+@app.get("/")
+async def app_root():
+    return {"message": "Timesheet Manager API", "status": "operational"}
+
+@app.get("/health")
+async def app_health_check():
+    return {"status": "healthy", "service": "timesheet-manager", "timestamp": datetime.now(timezone.utc).isoformat()}
+
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
