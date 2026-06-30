@@ -220,7 +220,7 @@ export default function TimesheetForm() {
   const isPmEditing = isEditing && user?.role === "project_manager";
   const [collapsedMobileDays, setCollapsedMobileDays] = useState({});
 
-  // TEMP submit handler (restore runtime stability)
+  // Submit handler: runtime-stable weekly timesheet submission flow
   
   // ===== RESTORED HELPERS (SAFE) =====
 
