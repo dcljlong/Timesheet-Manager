@@ -3960,3 +3960,123 @@ canvas.signature-canvas,
     overflow-wrap: break-word !important;
   }
 }
+
+/* TIMESHEET MANAGER / WEEK OVERVIEW COMMERCIAL LAYOUT FIX V1
+   Final live-proof fix:
+   - prevents Week overview helper text from wrapping word-by-word
+   - prevents mobile day titles and Day total text from stacking vertically
+   - keeps compact summary rows readable on tablet/narrow desktop widths
+   - scoped only to New Timesheet mobile-grid cards
+*/
+@media (max-width: 1023px) {
+  [data-testid="timesheet-mobile-grid"],
+  [data-testid="mobile-day-overview"],
+  [data-testid^="mobile-day-card-"] {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+  }
+
+  [data-testid="mobile-day-overview"] > div:first-child {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 0.75rem !important;
+  }
+
+  [data-testid="mobile-day-overview"] > div:first-child > div:first-child {
+    flex: 1 1 auto !important;
+    min-width: 12rem !important;
+    max-width: 100% !important;
+  }
+
+  [data-testid="mobile-day-overview"] > div:first-child > div:first-child * {
+    white-space: normal !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+    writing-mode: horizontal-tb !important;
+    line-height: 1.25 !important;
+  }
+
+  [data-testid="mobile-week-overview-readonly-list"] > div {
+    display: grid !important;
+    grid-template-columns: minmax(7.5rem, 1fr) auto auto auto !important;
+    align-items: center !important;
+    gap: 0.45rem !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  [data-testid="mobile-week-overview-readonly-list"] > div > * {
+    min-width: 0 !important;
+    white-space: nowrap !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+    writing-mode: horizontal-tb !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-day-header {
+    width: 100% !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-day-header > div:first-child {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+    gap: 0.75rem !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-day-header button[data-testid^="mobile-toggle-day-"] {
+    flex: 1 1 auto !important;
+    min-width: 10rem !important;
+    max-width: 100% !important;
+    width: auto !important;
+    display: block !important;
+    text-align: left !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-day-title,
+  [data-testid="timesheet-mobile-grid"] .mobile-day-header p,
+  [data-testid="timesheet-mobile-grid"] .mobile-day-header span {
+    white-space: normal !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+    writing-mode: horizontal-tb !important;
+    line-height: 1.2 !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-day-title {
+    display: block !important;
+    min-width: 8rem !important;
+  }
+}
+
+@media (max-width: 640px) {
+  [data-testid="mobile-day-overview"] > div:first-child {
+    align-items: stretch !important;
+  }
+
+  [data-testid="mobile-day-overview"] > div:first-child > div:first-child {
+    min-width: 0 !important;
+  }
+
+  [data-testid="mobile-week-overview-readonly-list"] > div {
+    grid-template-columns: minmax(5.75rem, 1fr) auto auto auto !important;
+    gap: 0.3rem !important;
+  }
+
+  [data-testid="mobile-week-overview-readonly-list"] > div > * {
+    font-size: 0.68rem !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-day-header button[data-testid^="mobile-toggle-day-"] {
+    min-width: 0 !important;
+  }
+}
