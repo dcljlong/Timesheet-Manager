@@ -268,6 +268,57 @@ export default function TimesheetForm() {
   // TIMESHEET / JOB-SPECIFIC TASK CODE FILTER V1
   const normaliseTaskCodeValue = (value) => String(value || "").trim().toUpperCase();
 
+  // TIMESHEET / GLOBAL TASK CODES IN JOB FILTER V1
+  // Job-specific FitoutOS/task mappings stay first, but payroll/general codes must remain available for every job.
+  const GLOBAL_TASK_CODE_VALUES = new Set([
+    "P&G",
+    "P&GS",
+    "P&GT",
+    "ACCOM",
+    "OTHER",
+    "R/M",
+    "SAFETY",
+    "STAFF",
+    "TOOLS",
+    "TRAINING",
+    "ADMIN",
+    "YARD"
+  ]);
+
+  const getTaskCodeOptionValue = (option = {}) => {
+    return normaliseTaskCodeValue(option.code || option.value || option.id || option.label || option.name);
+  };
+
+  const isGlobalTaskCodeOption = (option = {}) => {
+    const codeValue = getTaskCodeOptionValue(option);
+    const labelValue = normaliseTaskCodeValue(
+      option.description || option.name || option.label || option.title
+    );
+
+    return GLOBAL_TASK_CODE_VALUES.has(codeValue) ||
+      labelValue.includes("PRELIMS") ||
+      labelValue.includes("P&G SITE") ||
+      labelValue.includes("P&G TRAVEL") ||
+      labelValue.includes("ACCOMMODATION") ||
+      labelValue.includes("REPAIRS") ||
+      labelValue.includes("SAFETY") ||
+      labelValue.includes("STAFF") ||
+      labelValue.includes("TOOLS") ||
+      labelValue.includes("TRAINING") ||
+      labelValue.includes("ADMIN");
+  };
+
+  const mergeTaskCodeOptions = (primaryOptions = [], globalOptions = []) => {
+    const seen = new Set();
+
+    return [...primaryOptions, ...globalOptions].filter((option) => {
+      const key = getTaskCodeOptionValue(option);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  };
+
   const getTaskCodesForJob = (jobNumber) => {
     const cleanJobNumber = String(jobNumber || "").trim();
     if (!cleanJobNumber) return [];
@@ -277,8 +328,12 @@ export default function TimesheetForm() {
       taskCodesByJob[cleanJobNumber.toUpperCase()] ||
       [];
 
+    const globalOptions = Array.isArray(taskCodes)
+      ? taskCodes.filter(isGlobalTaskCodeOption)
+      : [];
+
     return Array.isArray(mappedOptions) && mappedOptions.length > 0
-      ? mappedOptions
+      ? mergeTaskCodeOptions(mappedOptions, globalOptions)
       : taskCodes;
   };
 
