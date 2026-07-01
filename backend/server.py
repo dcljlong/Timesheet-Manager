@@ -940,6 +940,8 @@ async def create_timesheet(timesheet: TimesheetCreate, request: Request):
         "admin_approved_by": None,
         "admin_approved_at": None,
         "rejection_comment": None,
+          "rejection_audit_trail": [],
+          "deletion_audit_trail": [],
           "pm_edit_history": [],
           "pm_last_edited_by": None,
           "pm_last_edited_name": None,
@@ -1268,6 +1270,8 @@ async def import_lld_labour_drafts(payload: LLDLabourDraftImport, request: Reque
             "admin_approved_by": None,
             "admin_approved_at": None,
             "rejection_comment": None,
+            "rejection_audit_trail": [],
+            "deletion_audit_trail": [],
             "pm_edit_history": [],
             "pm_last_edited_by": None,
             "pm_last_edited_name": None,
@@ -2432,6 +2436,8 @@ async def get_timesheet(timesheet_id: str, request: Request):
         "admin_approved_by": timesheet.get("admin_approved_by"),
         "admin_approved_at": timesheet.get("admin_approved_at").isoformat() if isinstance(timesheet.get("admin_approved_at"), datetime) else timesheet.get("admin_approved_at"),
         "rejection_comment": timesheet.get("rejection_comment"),
+        "rejection_audit_trail": timesheet.get("rejection_audit_trail", []),
+        "deletion_audit_trail": timesheet.get("deletion_audit_trail", []),
         "pm_last_edited_by": timesheet.get("pm_last_edited_by"),
         "pm_last_edited_name": timesheet.get("pm_last_edited_name"),
         "pm_last_edited_at": timesheet.get("pm_last_edited_at").isoformat() if isinstance(timesheet.get("pm_last_edited_at"), datetime) else timesheet.get("pm_last_edited_at"),
@@ -2524,6 +2530,7 @@ async def update_timesheet(timesheet_id: str, update: TimesheetUpdate, request: 
     update_data["admin_approved_by"] = None
     update_data["admin_approved_at"] = None
     update_data["rejection_comment"] = None
+    update_data["deletion_audit_trail"] = []
 
     await db.timesheets.update_one({"_id": ObjectId(timesheet_id)}, {"$set": update_data})
     return {"message": "Timesheet updated"}
@@ -2565,9 +2572,43 @@ async def delete_timesheet(timesheet_id: str, request: Request):
             detail="Only rejected, unprocessed timesheets can be deleted. Processed/exported timesheets need an adjustment instead."
         )
 
-    await db.timesheets.delete_one({"_id": ObjectId(timesheet_id)})
-    return {"message": "Rejected unprocessed timesheet deleted"}
+    deletion_audit_now = datetime.now(timezone.utc).isoformat()
+    deletion_audit_entry = {
+        "timesheet_id": str(timesheet["_id"]),
+        "action": "delete_rejected_timesheet_requested",
+        "at": deletion_audit_now,
+        "by_user_id": user.get("id"),
+        "by_email": user.get("email"),
+        "by_name": user.get("name"),
+        "employee_name": timesheet.get("employee_name"),
+        "user_id": timesheet.get("user_id"),
+        "week_ending": timesheet.get("week_ending"),
+        "total_hours": timesheet.get("total_hours"),
+        "status_at_delete": timesheet.get("status"),
+        "rejection_comment": timesheet.get("rejection_comment"),
+        "source": "delete_rejected_route_v1"
+    }
 
+    deletion_audit_result = await db.timesheet_audit_trail.insert_one(deletion_audit_entry)
+    delete_result = await db.timesheets.delete_one({"_id": ObjectId(timesheet_id)})
+    if delete_result.deleted_count != 1:
+        await db.timesheet_audit_trail.update_one(
+            {"_id": deletion_audit_result.inserted_id},
+            {"$set": {
+                "action": "delete_rejected_timesheet_failed",
+                "delete_failed_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+        raise HTTPException(status_code=500, detail="Timesheet deletion failed after audit record was created")
+
+    await db.timesheet_audit_trail.update_one(
+        {"_id": deletion_audit_result.inserted_id},
+        {"$set": {
+            "action": "deleted_rejected_timesheet",
+            "deleted_confirmed_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    return {"message": "Rejected unprocessed timesheet deleted"}
 @api_router.post("/timesheets/{timesheet_id}/pm-approve")
 async def pm_approve_timesheet(timesheet_id: str, approval: TimesheetApproval, request: Request):
     user = await get_current_user(request)
@@ -2640,13 +2681,27 @@ async def pm_approve_timesheet(timesheet_id: str, approval: TimesheetApproval, r
             "remaining_pm_signatures": remaining_pm_signatures
         }
     else:
+        audit_now_dt = datetime.now(timezone.utc)
+        audit_now = audit_now_dt.isoformat()
         await db.timesheets.update_one(
             {"_id": ObjectId(timesheet_id)},
-            {"$set": {
-                "status": "rejected",
-                "rejection_comment": approval.comment,
-                "updated_at": datetime.now(timezone.utc)
-            }}
+            {
+                "$set": {
+                    "status": "rejected",
+                    "rejection_comment": approval.comment,
+                    "updated_at": audit_now_dt
+                },
+                "$push": {
+                    "rejection_audit_trail": {
+                        "action": "pm_rejected",
+                        "at": audit_now,
+                        "by_user_id": user.get("id"),
+                        "by_email": user.get("email"),
+                        "by_name": user.get("name"),
+                        "comment": approval.comment
+                    }
+                }
+            }
         )
         return {"message": "Timesheet rejected"}
 
@@ -2770,14 +2825,28 @@ async def admin_approve_timesheet(timesheet_id: str, approval: TimesheetApproval
 
         return {"message": "Timesheet fully approved"}
     else:
+        audit_now_dt = datetime.now(timezone.utc)
+        audit_now = audit_now_dt.isoformat()
         await db.timesheets.update_one(
             {"_id": ObjectId(timesheet_id)},
-            {"$set": {
-                "status": "rejected",
-                "rejection_comment": approval.comment,
-                "pm_approved": False,
-                "updated_at": datetime.now(timezone.utc)
-            }}
+            {
+                "$set": {
+                    "status": "rejected",
+                    "rejection_comment": approval.comment,
+                    "pm_approved": False,
+                    "updated_at": audit_now_dt
+                },
+                "$push": {
+                    "rejection_audit_trail": {
+                        "action": "admin_rejected",
+                        "at": audit_now,
+                        "by_user_id": user.get("id"),
+                        "by_email": user.get("email"),
+                        "by_name": user.get("name"),
+                        "comment": approval.comment
+                    }
+                }
+            }
         )
         return {"message": "Timesheet rejected"}
 

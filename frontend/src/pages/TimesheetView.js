@@ -339,6 +339,22 @@ export default function TimesheetView() {
             </div>
           )}
 
+          {/* Payroll Audit Trail */}
+          {timesheet.rejection_audit_trail && timesheet.rejection_audit_trail.length > 0 && (
+            <div className="mb-5 p-4 bg-slate-50 border border-slate-200 rounded">
+              <p className="font-medium text-slate-800 mb-2">Payroll Audit Trail</p>
+              <p className="text-sm font-semibold text-slate-700">Rejection history</p>
+              <ul className="mt-1 space-y-1 text-sm text-slate-700">
+                {timesheet.rejection_audit_trail.map((entry, index) => (
+                  <li key={`rejection-audit-${index}`}>
+                    {entry.at || "Unknown time"} - {entry.action || "rejected"} by {entry.by_email || entry.by_name || "unknown"}
+                    {entry.comment ? `: ${entry.comment}` : ""}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* Timesheet Grid */}
           <div className="overflow-x-auto mb-5">
             <table className="w-full text-sm border border-gray-200 rounded overflow-hidden">
