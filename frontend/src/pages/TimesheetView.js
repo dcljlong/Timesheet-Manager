@@ -280,7 +280,7 @@ export default function TimesheetView() {
             )}
             <Button variant="outline" onClick={exportPDF} className="w-full px-3 py-2 text-sm sm:w-auto" data-testid="export-button">
               <Download className="w-4 h-4 mr-2" />
-              Print/PDF
+              Print / Save PDF
             </Button>
           </div>
         </div>
@@ -583,7 +583,7 @@ export default function TimesheetView() {
       {/* Print Styles */}
       <style>{`
         /* TIMESHEET MANAGER / PRINT PDF DOCUMENT LAYOUT V3
-           Print/PDF must output a payroll document, not the live app shell.
+           Print / Save PDF must output a payroll document, not the live app shell.
            The screen UI remains unchanged; these rules apply only in print preview/PDF.
         */
         @media print {

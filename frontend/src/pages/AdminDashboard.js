@@ -166,7 +166,7 @@ export default function AdminDashboard() {
 
   const handleSmartlyExport = async () => {
     if (!smartlySummary) {
-      window.alert("Run Validate Smartly Export first");
+      window.alert("Run Validate Weekly Smartly Export first for the selected week/pay group");
       return;
     }
 
@@ -394,7 +394,7 @@ export default function AdminDashboard() {
             data-testid="admin-export-csv-button"
           >
             <Download className="w-4 h-4 mr-2" />
-            Export Generic CSV
+            Export Payroll Review CSV
           </Button>
 
           <div className="card p-4 mb-4" data-testid="smartly-export-panel">
@@ -424,7 +424,7 @@ export default function AdminDashboard() {
                 disabled={smartlyLoading}
                 data-testid="validate-smartly-export-button"
               >
-                {smartlyLoading ? "Validating..." : "Validate Smartly Export"}
+                {smartlyLoading ? "Validating..." : "Validate Weekly Smartly Export"}
               </Button>
 
               <Button
@@ -435,7 +435,7 @@ export default function AdminDashboard() {
                 data-testid="export-smartly-csv-button"
               >
                 <Download className="w-4 h-4 mr-2" />
-                {smartlyExporting ? "Exporting..." : "Export Smartly Batch CSV"}
+                {smartlyExporting ? "Exporting..." : "Export Weekly Smartly Batch CSV"}
               </Button>
             </div>
 

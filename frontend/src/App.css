@@ -4080,3 +4080,80 @@ canvas.signature-canvas,
     min-width: 0 !important;
   }
 }
+/* TIMESHEET MANAGER / PAYROLL EXPORT POLISH V1
+   - make mobile day expand/collapse controls easier to see
+   - keep payroll print/PDF output A4, white, and app-chrome free
+*/
+[data-testid^="mobile-collapse-toggle"],
+[data-testid^="mobile-day-collapse"],
+button[aria-label*="Expand day"],
+button[aria-label*="Collapse day"] {
+  min-height: 42px;
+  border: 1px solid rgba(180, 130, 35, 0.75) !important;
+  background: rgba(255, 248, 225, 0.96) !important;
+  color: #111827 !important;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+  font-weight: 900;
+}
+
+[data-testid^="mobile-collapse-toggle"]:focus-visible,
+[data-testid^="mobile-day-collapse"]:focus-visible,
+button[aria-label*="Expand day"]:focus-visible,
+button[aria-label*="Collapse day"]:focus-visible {
+  outline: 3px solid rgba(245, 158, 11, 0.95);
+  outline-offset: 2px;
+}
+
+/* payroll-print-a4-v1 */
+@page {
+  size: A4 portrait;
+  margin: 9mm;
+}
+
+@media print {
+  html,
+  body,
+  #root {
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  aside,
+  nav,
+  header,
+  .sidebar,
+  .feedback,
+  .print-hide,
+  .no-print,
+  button {
+    display: none !important;
+  }
+
+  body * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  .timesheet-print-page,
+  .timesheet-print-page * {
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  .timesheet-print-page {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .timesheet-print-page table {
+    page-break-inside: avoid;
+    font-size: 10px;
+  }
+
+  .timesheet-print-page th,
+  .timesheet-print-page td {
+    padding: 4px 5px !important;
+  }
+}

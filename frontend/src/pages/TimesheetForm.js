@@ -1305,7 +1305,7 @@ const handleSubmit = async (e) => {
                   onClick={() => setAllMobileDaysCollapsed(!allMobileDaysCollapsed)}
                   data-testid="mobile-toggle-all-days"
                 >
-                  {allMobileDaysCollapsed ? "Expand all" : "Minimise all"}
+                  {allMobileDaysCollapsed ? "Expand all days" : "Collapse all days"}
                 </Button>
               </div>
 
@@ -1377,7 +1377,7 @@ const handleSubmit = async (e) => {
                         onClick={() => toggleMobileDayCollapsed(dayIndex)}
                         data-testid={"mobile-collapse-day-" + dayIndex}
                       >
-                        {isMobileDayCollapsed ? "Expand" : "Minimise"}
+                        {isMobileDayCollapsed ? "Expand day" : "Collapse day"}
                       </Button>
                     </div>
 
@@ -1411,7 +1411,7 @@ const handleSubmit = async (e) => {
                       className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-3 text-sm font-semibold text-gray-700"
                       data-testid={"mobile-collapsed-day-" + dayIndex}
                     >
-                      {daySummary.label} - {dayWorkTypeLabel} - {getDayTotal(dayIndex).toFixed(2)} hrs. Tap Expand to edit this day.
+                      {daySummary.label} - {dayWorkTypeLabel} - {getDayTotal(dayIndex).toFixed(2)} hrs. Tap Expand day to edit this day.
                     </div>
                   ) : (
                     <div className="space-y-3">

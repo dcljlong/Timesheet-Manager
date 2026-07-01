@@ -1785,6 +1785,56 @@ async def export_smartly_batch_csv(
         headers={"Content-Disposition": f'attachment; filename=""{filename}""'}
     )
 
+# TIMESHEET MANAGER / PAYROLL EXPORT POLISH V1
+# Human-readable payroll review CSV helpers. Smartly batch CSV remains machine-focused and separate.
+def _format_export_week_ending_display(value):
+    text = _clean_export_text(value)
+    if not text:
+        return ""
+    try:
+        dt = datetime.fromisoformat(str(text)[:10])
+        return f"{dt.strftime('%A')}, {dt.day} {dt.strftime('%B %Y')}"
+    except Exception:
+        return text
+
+def _format_export_nz_datetime(value):
+    if not value:
+        return ""
+    try:
+        dt = value if isinstance(value, datetime) else datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        try:
+            from zoneinfo import ZoneInfo
+            dt = dt.astimezone(ZoneInfo("Pacific/Auckland"))
+            tz_label = dt.tzname() or "NZT"
+        except Exception:
+            from datetime import timedelta as _timedelta, timezone as _timezone
+            dt = dt.astimezone(_timezone(_timedelta(hours=12)))
+            tz_label = "NZT"
+        return f"{dt.day:02d}/{dt.month:02d}/{dt.year} {dt.strftime('%I:%M %p').lstrip('0')} {tz_label}"
+    except Exception:
+        return str(value)
+
+def _format_export_entry_type_label(value):
+    text = _clean_export_text(value or "work")
+    labels = {
+        "work": "Work",
+        "public_holiday": "Public Holiday",
+        "annual_leave": "Annual Leave",
+        "sick": "Sick",
+        "no_work": "No Work",
+        "unpaid_day_off": "No Work",
+        "other": "Other",
+    }
+    return labels.get(text, text.replace("_", " ").title())
+
+def _format_export_project_manager(pm_id, pm_lookup):
+    key = _clean_export_text(pm_id)
+    if not key:
+        return ""
+    return pm_lookup.get(key, key)
+
 @api_router.get("/timesheets/export.csv")
 async def export_timesheets_csv(
     request: Request,
@@ -1823,6 +1873,24 @@ async def export_timesheets_csv(
         "created_at": 1
     }).sort("week_ending", -1).to_list(5000)
 
+    pm_docs = await db.project_managers.find({}, {
+        "_id": 1,
+        "initials": 1,
+        "name": 1
+    }).to_list(5000)
+
+    pm_lookup = {}
+    for pm in pm_docs:
+        pm_id = str(pm.get("_id", ""))
+        initials = _clean_export_text(pm.get("initials"))
+        name = _clean_export_text(pm.get("name"))
+        if initials and name:
+            pm_lookup[pm_id] = f"{initials} - {name}"
+        elif name:
+            pm_lookup[pm_id] = name
+        elif initials:
+            pm_lookup[pm_id] = initials
+
     status_labels = {
         "submitted": "Pending PM",
         "pm_approved": "Pending Admin",
@@ -1852,8 +1920,8 @@ async def export_timesheets_csv(
 
     for timesheet in timesheets:
         days = timesheet.get("days", []) or []
-        created_at = timesheet.get("created_at")
-        created_at_text = created_at.isoformat() if isinstance(created_at, datetime) else str(created_at or "")
+        created_at_text = _format_export_nz_datetime(timesheet.get("created_at"))
+        week_display = _format_export_week_ending_display(timesheet.get("week_ending", ""))
         status_value = timesheet.get("status", "")
         status_label = status_labels.get(status_value, status_value)
 
@@ -1863,17 +1931,17 @@ async def export_timesheets_csv(
             for entry in (day.get("entries", []) or []):
                 writer.writerow([
                     timesheet.get("employee_name", ""),
-                    timesheet.get("week_ending", ""),
+                    week_display,
                     timesheet.get("period_type", ""),
                     status_label,
                     day_name,
-                    entry.get("type", "work"),
+                    _format_export_entry_type_label(entry.get("type", "work")),
                     entry.get("start_time", ""),
                     entry.get("finish_time", ""),
                     entry.get("total_hours", 0),
                     entry.get("job_number", ""),
                     entry.get("task_code", ""),
-                    entry.get("project_manager_id", ""),
+                    _format_export_project_manager(entry.get("project_manager_id"), pm_lookup),
                     timesheet.get("messages", "") or "",
                     timesheet.get("nights_away", 0) or 0,
                     created_at_text
@@ -1883,7 +1951,7 @@ async def export_timesheets_csv(
         if not wrote_row:
             writer.writerow([
                 timesheet.get("employee_name", ""),
-                timesheet.get("week_ending", ""),
+                week_display,
                 timesheet.get("period_type", ""),
                 status_label,
                 "",
