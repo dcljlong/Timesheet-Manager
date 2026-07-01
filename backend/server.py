@@ -3009,6 +3009,54 @@ async def update_user_payroll_settings(user_id: str, request: Request):
 
     return {"message": "Payroll settings updated"}
 
+
+# TIMESHEET MANAGER / STAFF RESET TEMP PASSWORD V1
+@api_router.put("/users/{user_id}/reset-password")
+async def reset_user_password(user_id: str, request: Request):
+    current_user = await get_current_user(request)
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    if user_id == current_user["id"]:
+        raise HTTPException(status_code=400, detail="Use Settings to change your own password")
+
+    try:
+        target_object_id = ObjectId(user_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid user id")
+
+    body = await request.json()
+    temporary_password = (body.get("password") or body.get("temporary_password") or "").strip()
+
+    if len(temporary_password) < 8:
+        raise HTTPException(status_code=400, detail="Temporary password must be at least 8 characters")
+
+    target_user = await db.users.find_one({"_id": target_object_id})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    reset_at = datetime.now(timezone.utc)
+    update_data = {
+        "password_hash": hash_password(temporary_password),
+        "updated_at": reset_at
+    }
+
+    if not target_user.get("first_login_at"):
+        update_data["account_status"] = "invited"
+        update_data["invited_at"] = reset_at
+
+    await db.users.update_one(
+        {"_id": target_object_id},
+        {"$set": update_data}
+    )
+
+    return {
+        "message": "Temporary password reset",
+        "user_id": user_id,
+        "account_status": update_data.get("account_status", target_user.get("account_status", "active")),
+        "invited_at": reset_at.isoformat()
+    }
+
 @api_router.delete("/users/{user_id}")
 async def delete_user(user_id: str, request: Request):
     current_user = await get_current_user(request)

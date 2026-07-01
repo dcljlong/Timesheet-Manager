@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
-import { ArrowLeft, Mail, Trash2, UserPlus, Users } from "lucide-react";
+import { ArrowLeft, KeyRound, Mail, Trash2, UserPlus, Users } from "lucide-react";
 import { format } from "date-fns";
 import Layout from "../components/Layout";
 
@@ -16,6 +16,7 @@ export default function ManageUsers() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingPayrollUserId, setSavingPayrollUserId] = useState(null);
+  const [resettingPasswordUserId, setResettingPasswordUserId] = useState(null);
   const [showAddUser, setShowAddUser] = useState(false);
   const [creatingUser, setCreatingUser] = useState(false);
   const [newUser, setNewUser] = useState({
@@ -156,6 +157,69 @@ export default function ManageUsers() {
     toast.success("Invite email draft opened - send it from your email app, then confirm first login manually");
   };
 
+
+  // TIMESHEET MANAGER / STAFF RESET TEMP PASSWORD V1
+  const handleResetTemporaryPassword = async (targetUser) => {
+    const userId = targetUser?.id;
+    const displayName = targetUser?.name || targetUser?.email || "this user";
+
+    if (!userId) {
+      toast.error("User id is missing");
+      return;
+    }
+
+    if (userId === currentUser?.id) {
+      toast.error("Use Settings to change your own password");
+      return;
+    }
+
+    const temporaryPassword = window.prompt(
+      `Enter a new temporary password for ${displayName}. Minimum 8 characters.\n\nSend this password to the user separately.`
+    );
+
+    if (temporaryPassword === null) {
+      return;
+    }
+
+    const cleanPassword = temporaryPassword.trim();
+
+    if (cleanPassword.length < 8) {
+      toast.error("Temporary password must be at least 8 characters");
+      return;
+    }
+
+    if (!window.confirm(`Reset temporary password for ${displayName}?`)) {
+      return;
+    }
+
+    setResettingPasswordUserId(userId);
+
+    try {
+      const { data } = await axios.put(
+        `${API}/users/${userId}/reset-password`,
+        { password: cleanPassword },
+        { withCredentials: true }
+      );
+
+      setUsers((current) => current.map((u) => (
+        u.id === userId
+          ? {
+              ...u,
+              account_status: data?.account_status || u.account_status,
+              invited_at: data?.invited_at || u.invited_at
+            }
+          : u
+      )));
+
+      toast.success("Temporary password reset. Open the invite email and send the new password separately.");
+    } catch (err) {
+      toast.error(formatApiError(err, "Password reset failed"));
+    } finally {
+      setResettingPasswordUserId(null);
+    }
+  };
+
+
   const handleDelete = async (userId, name) => {
     if (userId === currentUser?.id) {
       toast.error("You cannot delete yourself");
@@ -256,7 +320,7 @@ export default function ManageUsers() {
                   Manage Users
                 </h1>
                 <p className="mt-1 max-w-3xl text-sm text-gray-600">
-                  Create staff logins, control roles, and maintain payroll export details before loading the full team. Invite opens an email draft; Account Status now shows Invite ready, Active, and first/last login proof.
+                  Create staff logins, control roles, reset temporary passwords, and maintain payroll export details before loading the full team. Invite opens an email draft; Account Status now shows Invite ready, Active, and first/last login proof.
                 </p>
               </div>
             </div>
@@ -388,7 +452,7 @@ export default function ManageUsers() {
                       <th>Costing Mode</th>
                       <th>Std Hours</th>
                     <th>Created</th>
-                    <th>Payroll / Invite / Remove</th>
+                    <th>Payroll / Invite / Password / Remove</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -496,6 +560,23 @@ export default function ManageUsers() {
                               Open Invite Email
                             </Button>
                           </div>
+
+                          <div>
+                            <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-amber-700">Password</p>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleResetTemporaryPassword(u)}
+                              className="w-full justify-center border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                              disabled={u.id === currentUser?.id || resettingPasswordUserId === u.id}
+                              data-testid={`reset-password-${u.id}`}
+                            >
+                              <KeyRound className="mr-1 h-4 w-4" />
+                              {resettingPasswordUserId === u.id ? "Resetting..." : "Reset Temp Password"}
+                            </Button>
+                          </div>
+
                           <div>
                             <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-red-600">Remove</p>
                             <Button
