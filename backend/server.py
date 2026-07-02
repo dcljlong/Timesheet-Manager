@@ -1455,21 +1455,49 @@ async def _build_smartly_export_bundle(week_ending: Optional[str] = None, pay_gr
         except Exception:
             pass
 
+    # TIMESHEET MANAGER / SMARTLY USER NAME FALLBACK V8
+    # Primary payroll-settings match remains timesheet.user_id.
+    # Fallback supports legacy approved timesheets whose stored user_id no longer exists,
+    # but whose employee_name exactly matches one unique active Timesheet user.
+    user_projection = {
+        "_id": 1,
+        "name": 1,
+        "email": 1,
+        "role": 1,
+        "is_pro": 1,
+        "smartly_employee_code": 1,
+        "smartly_pay_group": 1,
+        "payroll_treatment": 1,
+        "smartly_costing_mode": 1,
+        "smartly_has_standard_hours": 1
+    }
+
     users = []
     if user_object_ids:
         users = await db.users.find({
             "_id": {"$in": user_object_ids}
-        }, {
-            "_id": 1,
-            "name": 1,
-            "smartly_employee_code": 1,
-            "smartly_pay_group": 1,
-            "payroll_treatment": 1,
-            "smartly_costing_mode": 1,
-            "smartly_has_standard_hours": 1
-        }).to_list(5000)
+        }, user_projection).to_list(5000)
 
     users_by_id = {str(u["_id"]): u for u in users}
+
+    payroll_lookup_users = await db.users.find({
+        "role": {"$in": ["employee", "project_manager", "admin"]},
+        "is_pro": {"$ne": True}
+    }, user_projection).to_list(5000)
+
+    payroll_users_by_name = {}
+    payroll_duplicate_names = set()
+    for payroll_user in payroll_lookup_users:
+        payroll_name = _clean_export_text(payroll_user.get("name")).lower()
+        if not payroll_name:
+            continue
+        if payroll_name in payroll_users_by_name:
+            payroll_duplicate_names.add(payroll_name)
+            continue
+        payroll_users_by_name[payroll_name] = payroll_user
+
+    for duplicate_name in payroll_duplicate_names:
+        payroll_users_by_name.pop(duplicate_name, None)
 
     task_codes = await db.task_codes.find({}, {
         "_id": 0,
@@ -1500,6 +1528,14 @@ async def _build_smartly_export_bundle(week_ending: Optional[str] = None, pay_gr
         first_name, surname = _split_employee_name(employee_name)
         week_value = _clean_export_text(timesheet.get("week_ending"))
         user_doc = users_by_id.get(user_id)
+        matched_user_by = "user_id"
+
+        if not user_doc:
+            fallback_key = employee_name.lower()
+            fallback_user = payroll_users_by_name.get(fallback_key)
+            if fallback_user:
+                user_doc = fallback_user
+                matched_user_by = "employee_name"
 
         if not user_doc:
             issues.append({
@@ -1678,7 +1714,8 @@ async def _build_smartly_export_bundle(week_ending: Optional[str] = None, pay_gr
                     "finish_time": finish_time,
                     "smartly_employee_code": smartly_employee_code,
                     "smartly_department_quick_code": smartly_department_quick_code,
-                    "description": description
+                    "description": description,
+                    "matched_user_by": matched_user_by
                 })
 
                 ready_pay_groups.add(smartly_pay_group)
