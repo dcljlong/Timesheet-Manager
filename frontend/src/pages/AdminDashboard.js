@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth, API } from "../App";
 import axios from "axios";
 import { Button } from "../components/ui/button";
-import { FileText, Users, Clock, CheckCircle, XCircle, Layers, UserCog, Download, Briefcase } from "lucide-react";
+import { FileText, Users, Clock, CheckCircle, XCircle, Layers, UserCog, Download, Briefcase, ShieldCheck } from "lucide-react";
 import { format } from "date-fns";
 import Layout from "../components/Layout";
 
@@ -308,7 +308,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
           <button
             onClick={() => navigate("/admin/users")}
             className="card p-4 flex items-center hover:bg-gray-50 transition-colors text-left"
@@ -320,6 +320,20 @@ export default function AdminDashboard() {
             <div className="ml-4">
               <p className="font-medium">Manage Users</p>
               <p className="text-sm text-gray-500">View and edit user roles</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => navigate("/admin/audit-log")}
+            className="card p-4 flex items-center hover:bg-gray-50 transition-colors text-left"
+            data-testid="manage-audit-log-link"
+          >
+            <div className="p-3 bg-emerald-100 rounded">
+              <ShieldCheck className="w-5 h-5 text-emerald-700" />
+            </div>
+            <div className="ml-4">
+              <p className="font-medium">Audit Log</p>
+              <p className="text-sm text-gray-500">Deleted rejected timesheets</p>
             </div>
           </button>
 

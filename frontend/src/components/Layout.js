@@ -1,6 +1,6 @@
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth, useTheme } from "../App";
-import { LogOut, Settings, FileText, Users, ClipboardList, Home, UserCog, Layers, Sun, Moon, Wrench, Briefcase, MessageSquare } from "lucide-react";
+import { LogOut, Settings, FileText, Users, ClipboardList, Home, UserCog, Layers, Sun, Moon, Wrench, Briefcase, MessageSquare, ShieldCheck } from "lucide-react";
 import { Button } from "../components/ui/button";
 import timesheetLogo from "../assets/timesheet-manager-logo.png";
 
@@ -50,6 +50,7 @@ export default function Layout({ children }) {
       { path: "/employee", label: "My Timesheets", icon: FileText },
       { path: "/pm", label: "PM Approvals", icon: ClipboardList },
       { path: "/admin/users", label: "Users", icon: Users },
+      { path: "/admin/audit-log", label: "Audit Log", icon: ShieldCheck },
       { path: "/admin/task-codes", label: "Task Codes", icon: Layers },
       { path: "/admin/job-numbers", label: "Job Numbers", icon: Briefcase },
       { path: "/admin/pms", label: "Project Managers", icon: UserCog },

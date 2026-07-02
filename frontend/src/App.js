@@ -29,6 +29,7 @@ import ManageTaskCodes from "./pages/ManageTaskCodes";
 import ManageJobNumbers from "./pages/ManageJobNumbers";
 import ManagePMs from "./pages/ManagePMs";
 import ManageUsers from "./pages/ManageUsers";
+import ManageAuditLog from "./pages/ManageAuditLog";
 
 const ThemeContext = createContext(null);
 
@@ -411,6 +412,11 @@ function App() {
           <Route path="/admin/users" element={
             <ProtectedRoute allowedRoles={["admin"]}>
               <ManageUsers />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/audit-log" element={
+            <ProtectedRoute allowedRoles={["admin"]}>
+              <ManageAuditLog />
             </ProtectedRoute>
           } />
         </Routes>

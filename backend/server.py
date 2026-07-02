@@ -3138,6 +3138,26 @@ async def delete_user(user_id: str, request: Request):
     await db.users.delete_one({"_id": ObjectId(user_id)})
     return {"message": "User deleted"}
 
+# ==================== ADMIN AUDIT LOG ====================
+
+@api_router.get("/admin/audit-log")
+async def get_admin_audit_log(request: Request, limit: int = 100):
+    current_user = await get_current_user(request)
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    safe_limit = max(1, min(limit, 250))
+    cursor = db.timesheet_audit_trail.find({}).sort("at", -1).limit(safe_limit)
+
+    audit_entries = []
+    async for entry in cursor:
+        entry["id"] = str(entry.pop("_id"))
+        if entry.get("timesheet_id") is not None:
+            entry["timesheet_id"] = str(entry["timesheet_id"])
+        audit_entries.append(entry)
+
+    return {"audit_entries": audit_entries, "count": len(audit_entries)}
+
 # ==================== DASHBOARD STATS ====================
 
 @api_router.get("/dashboard/stats")
