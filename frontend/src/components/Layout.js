@@ -1,5 +1,6 @@
+import { useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { useAuth, useTheme } from "../App";
+import { useAuth, useTheme, API } from "../App";
 import { LogOut, Settings, FileText, Users, ClipboardList, Home, UserCog, Layers, Sun, Moon, Wrench, Briefcase, MessageSquare, ShieldCheck } from "lucide-react";
 import { Button } from "../components/ui/button";
 import timesheetLogo from "../assets/timesheet-manager-logo.png";
@@ -87,6 +88,82 @@ export default function Layout({ children }) {
   const visibleSuiteLinks = user?.role === "admin" || user?.role === "project_manager" ? suiteLinks.filter((link) => Boolean(link.href)) : [];
   const displayName = user?.name || user?.email || "Timesheet User";
   const roleLabel = (user?.role || "user").replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+
+  // TIMESHEET MANAGER / PWA FOREGROUND APP ICON BADGE V2
+  // Updates installed PWA app-icon badge from pending timesheet approval counts while the app is open/active.
+  useEffect(() => {
+    const badgeApiAvailable = typeof navigator !== "undefined" && "setAppBadge" in navigator && "clearAppBadge" in navigator;
+
+    if (!badgeApiAvailable || !user?.role) {
+      return undefined;
+    }
+
+    const canUseApprovalBadge = user.role === "admin" || user.role === "project_manager";
+
+    if (!canUseApprovalBadge) {
+      navigator.clearAppBadge?.().catch(() => {});
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const toNumber = (value) => {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    const getPendingBadgeCount = (stats) => {
+      if (user.role === "admin") {
+        return toNumber(stats?.pending_pm_approval) + toNumber(stats?.pending_admin_approval);
+      }
+
+      return (
+        toNumber(stats?.pending_approval) ||
+        toNumber(stats?.pending) ||
+        toNumber(stats?.pending_pm_approval) ||
+        toNumber(stats?.pending_admin_approval)
+      );
+    };
+
+    const updateBadge = async () => {
+      try {
+        const token = window.localStorage.getItem("token") || window.localStorage.getItem("access_token") || "";
+        const endpoint = user.role === "admin" ? `${API}/dashboard/stats` : `${API}/dashboard/pm-stats`;
+        const response = await fetch(endpoint, {
+          credentials: "include",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const stats = await response.json();
+
+        if (cancelled) {
+          return;
+        }
+
+        const pendingCount = getPendingBadgeCount(stats);
+
+        if (pendingCount > 0) {
+          await navigator.setAppBadge(pendingCount);
+        } else {
+          await navigator.clearAppBadge();
+        }
+      } catch (err) {
+        // Badge support is browser/device dependent; never block app use if unsupported or unavailable.
+      }
+    };
+
+    updateBadge();
+    const timer = window.setInterval(updateBadge, 60000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [user?.role]);
 
   return (
     <div className="tm-app-shell" data-testid="app-layout">
