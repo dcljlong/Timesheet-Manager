@@ -2572,6 +2572,17 @@ async def delete_timesheet(timesheet_id: str, request: Request):
             detail="Only rejected, unprocessed timesheets can be deleted. Processed/exported timesheets need an adjustment instead."
         )
 
+    deleted_job_numbers = []
+    deleted_task_codes = []
+    for day in timesheet.get("days", []) or []:
+        for entry in day.get("entries", []) or []:
+            job_number = str(entry.get("job_number") or "").strip()
+            task_code = str(entry.get("task_code") or "").strip()
+            if job_number and job_number not in deleted_job_numbers:
+                deleted_job_numbers.append(job_number)
+            if task_code and task_code not in deleted_task_codes:
+                deleted_task_codes.append(task_code)
+
     deletion_audit_now = datetime.now(timezone.utc).isoformat()
     deletion_audit_entry = {
         "timesheet_id": str(timesheet["_id"]),
@@ -2584,6 +2595,8 @@ async def delete_timesheet(timesheet_id: str, request: Request):
         "user_id": timesheet.get("user_id"),
         "week_ending": timesheet.get("week_ending"),
         "total_hours": timesheet.get("total_hours"),
+        "job_numbers": deleted_job_numbers,
+        "task_codes": deleted_task_codes,
         "status_at_delete": timesheet.get("status"),
         "rejection_comment": timesheet.get("rejection_comment"),
         "source": "delete_rejected_route_v1"

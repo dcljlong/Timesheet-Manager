@@ -50,6 +50,8 @@ const buildSearchText = (entry) => {
     entry?.actor_email,
     entry?.actor_name,
     entry?.week_ending,
+    entry?.job_numbers,
+    entry?.task_codes,
     entry?.timesheet_id,
     entry?.rejection_comment,
     entry?.source,
@@ -57,6 +59,14 @@ const buildSearchText = (entry) => {
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
+};
+
+const formatAuditList = (value) => {
+  if (Array.isArray(value)) {
+    return value.length ? value.join(", ") : "Not recorded";
+  }
+
+  return value || "Not recorded";
 };
 
 const detailRows = [
@@ -68,6 +78,8 @@ const detailRows = [
   ["Employee", getEmployeeLabel],
   ["Week ending", (entry) => entry.week_ending || "Not recorded"],
   ["Total hours", (entry) => entry.total_hours ?? "Not recorded"],
+  ["Job numbers", (entry) => formatAuditList(entry.job_numbers)],
+  ["Task codes", (entry) => formatAuditList(entry.task_codes)],
   ["Status at delete", (entry) => entry.status_at_delete || "Not recorded"],
   ["Timesheet ID", (entry) => entry.timesheet_id || "Not recorded"],
   ["Audit ID", (entry) => entry.id || "Not recorded"],
