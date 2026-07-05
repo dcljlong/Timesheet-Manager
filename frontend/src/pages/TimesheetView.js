@@ -341,7 +341,7 @@ export default function TimesheetView() {
         </div>
 
         {/* Timesheet Card */}
-        <div className="card p-6 mb-5 print:shadow-none print:border-2" data-testid="timesheet-print-document">
+        <div className="card p-6 mb-5 timesheet-print-page print:shadow-none print:border-2" data-testid="timesheet-print-document" data-print-status={timesheet.status}>
           {/* Header Info */}
           <div className="flex flex-wrap justify-between items-start mb-5 pb-4 border-b">
             <div>
@@ -821,6 +821,121 @@ export default function TimesheetView() {
           .print\\:shadow-none { box-shadow: none !important; }
           .print\\:border-2 { border-width: 0 !important; }
           .print\\:p-0 { padding: 0 !important; }
+        }
+        /* TIMESHEET MANAGER / PDF TRUE A4 FIT V3 */
+        /* timesheet-pdf-true-a4-fit-v3
+           Fixes Chrome Print / Save PDF behaving like a small app-card print.
+           Activates the existing compact A4 print-page rules and forces the printable
+           timesheet to use the A4 portrait content width consistently before/after admin approval.
+        */
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 5mm;
+          }
+
+          html,
+          body,
+          #root {
+            width: 210mm !important;
+            min-width: 210mm !important;
+            max-width: 210mm !important;
+            min-height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            background: #ffffff !important;
+          }
+
+          [data-testid="timesheet-view"] {
+            width: 200mm !important;
+            min-width: 200mm !important;
+            max-width: 200mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+          }
+
+          [data-testid="timesheet-print-document"].timesheet-print-page {
+            position: static !important;
+            left: auto !important;
+            top: auto !important;
+            display: block !important;
+            width: 200mm !important;
+            min-width: 200mm !important;
+            max-width: 200mm !important;
+            margin: 0 auto !important;
+            padding: 3mm !important;
+            box-sizing: border-box !important;
+            transform: none !important;
+            zoom: 1 !important;
+            border: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            background: #ffffff !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+
+          [data-testid="timesheet-print-document"].timesheet-print-page > div:first-child {
+            margin-bottom: 2mm !important;
+            padding-bottom: 2mm !important;
+          }
+
+          [data-testid="timesheet-print-document"].timesheet-print-page table {
+            width: 100% !important;
+            table-layout: fixed !important;
+            border-collapse: collapse !important;
+            font-size: 6.4pt !important;
+            line-height: 1.03 !important;
+            margin: 1.5mm 0 2mm 0 !important;
+          }
+
+          [data-testid="timesheet-print-document"].timesheet-print-page th,
+          [data-testid="timesheet-print-document"].timesheet-print-page td {
+            padding: 0.95mm 0.8mm !important;
+            line-height: 1.03 !important;
+            vertical-align: top !important;
+          }
+
+          [data-testid="timesheet-print-document"].timesheet-print-page th {
+            font-size: 5.8pt !important;
+            white-space: nowrap !important;
+          }
+
+          [data-testid="timesheet-print-document"].timesheet-print-page td:nth-child(10) {
+            font-size: 5.95pt !important;
+            overflow-wrap: anywhere !important;
+          }
+
+          [data-testid="timesheet-print-document"].timesheet-print-page h2 {
+            font-size: 10pt !important;
+            margin-bottom: 1.5mm !important;
+            line-height: 1.05 !important;
+          }
+
+          [data-testid="timesheet-print-document"].timesheet-print-page h3 {
+            font-size: 8pt !important;
+            margin: 2mm 0 1.5mm 0 !important;
+            line-height: 1.05 !important;
+          }
+
+          [data-testid="timesheet-print-document"].timesheet-print-page .border-t {
+            margin-top: 2mm !important;
+            padding-top: 2mm !important;
+          }
+
+          [data-testid="timesheet-print-document"].timesheet-print-page img {
+            max-height: 17mm !important;
+            max-width: 48mm !important;
+            object-fit: contain !important;
+          }
+
+          [data-testid="timesheet-print-document"].timesheet-print-page [data-testid*="signature"] {
+            padding: 1mm !important;
+            margin: 0 !important;
+            min-height: 0 !important;
+          }
         }
       `}</style>
     </Layout>
