@@ -231,6 +231,119 @@ export default function TimesheetView() {
     }
   };
 
+  const escapeExcelCsvValue = (value) => {
+    const raw = value === null || value === undefined ? "" : String(value);
+    return `"${raw.replace(/"/g, '""')}"`;
+  };
+
+  const getExcelCsvLunchText = (entry) => {
+    const value = entry.lunch_break_minutes ?? entry.lunch_break ?? entry.lunch ?? "";
+    if (value === null || value === undefined || value === "") return "";
+    return typeof value === "number" ? `${value}m` : String(value);
+  };
+
+  const getExcelCsvDayLabel = (day) => {
+    return day.day || day.day_name || day.name || day.date || "";
+  };
+
+  const exportExcelCsv = () => {
+    // TIMESHEET MANAGER / EXPORT EXCEL CSV V1
+    // Exports the current timesheet summary as an Excel-compatible CSV file.
+    if (!timesheet) return;
+
+    const statusText = {
+      submitted: "Pending PM Approval",
+      pm_approved: "Pending Admin Approval",
+      approved: "Approved",
+      rejected: "Not Approved",
+      voided_test: "Voided Test"
+    }[timesheet.status] || timesheet.status || "";
+
+    const weekEnding = timesheet.week_ending ? format(new Date(timesheet.week_ending), "yyyy-MM-dd") : "unknown-week";
+    const weekEndingLong = timesheet.week_ending ? format(new Date(timesheet.week_ending), "EEEE, d MMMM yyyy") : "";
+    const employeeName = timesheet.employee_name || "Unknown Employee";
+
+    const rows = [
+      ["Timesheet"],
+      ["Employee", employeeName],
+      ["Week Ending", weekEndingLong],
+      ["Status", statusText],
+      [],
+      ["Day", "Type", "Start", "Lunch", "Finish", "Hours", "Job No.", "Code", "PM", "Description"]
+    ];
+
+    (timesheet.days || []).forEach((day) => {
+      const dayLabel = getExcelCsvDayLabel(day);
+      const entries = day.entries || [];
+
+      if (entries.length === 0) {
+        rows.push([dayLabel, "No Work", "", "", "", "", "", "", "", ""]);
+        return;
+      }
+
+      entries.forEach((entry, entryIndex) => {
+        const pmValue = entry.pm_name ||
+          getPmDisplayName(entry.project_manager || entry.project_manager_id || entry.pm_id || entry.pm);
+
+        rows.push([
+          entryIndex === 0 ? dayLabel : "",
+          getEntryWorkType(entry),
+          entry.start_time || entry.start || "",
+          getExcelCsvLunchText(entry),
+          entry.finish_time || entry.finish || "",
+          entry.hours ?? entry.total_hours ?? "",
+          entry.job_number || entry.job_no || "",
+          entry.task_code || entry.code || "",
+          pmValue || "",
+          entry.description || ""
+        ]);
+      });
+    });
+
+    rows.push([]);
+    rows.push(["TOTAL HOURS", timesheet.total_hours ?? getCalculatedTotalHours()]);
+    rows.push([]);
+    rows.push(["Messages / Notes", timesheet.messages || timesheet.notes || "No messages"]);
+    rows.push(["Nights Away", timesheet.nights_away ?? 0]);
+    rows.push([]);
+    rows.push(["Employee Signature", timesheet.employee_signature ? "Signed" : "Not signed"]);
+
+    if (timesheet.pm_signatures && timesheet.pm_signatures.length > 0) {
+      timesheet.pm_signatures.forEach((sig, index) => {
+        rows.push([
+          `PM Signature ${index + 1}`,
+          sig.pm_name || "",
+          sig.signed_at ? format(new Date(sig.signed_at), "PPp") : "Signed"
+        ]);
+      });
+    } else {
+      rows.push(["PM Signature", "Awaiting approval"]);
+    }
+
+    const csv = "\uFEFF" + rows
+      .map((row) => row.map(escapeExcelCsvValue).join(","))
+      .join("\r\n");
+
+    const safeEmployee = employeeName
+      .replace(/[^a-z0-9]+/gi, "-")
+      .replace(/^-+|-+$/g, "")
+      .toLowerCase() || "timesheet";
+
+    const filename = `timesheet-${safeEmployee}-week-ending-${weekEnding}.csv`;
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+
+    toast.success("Excel CSV exported");
+  };
+
   const exportPDF = () => {
     // Print-friendly version
     window.print();
@@ -330,9 +443,13 @@ export default function TimesheetView() {
                 data-testid="void-approved-test-timesheet-button"
               >
                 <Trash2 className="w-4 h-4 mr-2" />
-                {voidingTest ? "Voiding..." : (<><span className="sm:hidden">Void</span><span className="hidden sm:inline">Void test</span></>)}
+                {voidingTest ? "Voiding..." : (<><span className="sm:hidden">Void TEST</span><span className="hidden sm:inline">Void TEST timesheet</span></>)}
               </Button>
             )}
+            <Button variant="outline" onClick={exportExcelCsv} className="w-full px-3 py-2 text-sm sm:w-auto" data-testid="export-excel-button">
+              <Download className="w-4 h-4 mr-2" />
+              Export Excel
+            </Button>
             <Button variant="outline" onClick={exportPDF} className="w-full px-3 py-2 text-sm sm:w-auto" data-testid="export-button">
               <Download className="w-4 h-4 mr-2" />
               Print / Save PDF
