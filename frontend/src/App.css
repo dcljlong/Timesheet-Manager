@@ -4157,3 +4157,197 @@ button[aria-label*="Collapse day"]:focus-visible {
     padding: 4px 5px !important;
   }
 }
+
+/* TIMESHEET MANAGER / A4 PORTRAIT COMPACT PRINT V2 */
+/* timesheet-a4-portrait-compact-print-v2
+   Print-only density hardening for approved/busy weekly timesheets.
+   Keeps screen UI unchanged. Keeps signatures and totals visible.
+   Goal: improve one-page A4 portrait fit before payroll/admin filing. */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 6mm 5mm;
+  }
+
+  html,
+  body {
+    width: 210mm !important;
+    min-height: 297mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  html body .timesheet-print-page,
+  html body [data-testid="timesheet-print-page"] {
+    width: 100% !important;
+    max-width: none !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: 0 !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+    font-size: 7.2pt !important;
+    line-height: 1.1 !important;
+    overflow: visible !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  html body .timesheet-print-page h1,
+  html body .timesheet-print-page h2,
+  html body .timesheet-print-page h3,
+  html body [data-testid="timesheet-print-page"] h1,
+  html body [data-testid="timesheet-print-page"] h2,
+  html body [data-testid="timesheet-print-page"] h3 {
+    margin-top: 0 !important;
+    margin-bottom: 2mm !important;
+    line-height: 1.05 !important;
+  }
+
+  html body .timesheet-print-page h1,
+  html body [data-testid="timesheet-print-page"] h1 {
+    font-size: 10pt !important;
+  }
+
+  html body .timesheet-print-page h2,
+  html body .timesheet-print-page h3,
+  html body [data-testid="timesheet-print-page"] h2,
+  html body [data-testid="timesheet-print-page"] h3 {
+    font-size: 8pt !important;
+  }
+
+  html body .timesheet-print-page p,
+  html body .timesheet-print-page div,
+  html body .timesheet-print-page span,
+  html body [data-testid="timesheet-print-page"] p,
+  html body [data-testid="timesheet-print-page"] div,
+  html body [data-testid="timesheet-print-page"] span {
+    line-height: 1.1 !important;
+  }
+
+  html body .timesheet-print-page table,
+  html body [data-testid="timesheet-print-page"] table {
+    width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+    border-spacing: 0 !important;
+    margin-top: 1.5mm !important;
+    margin-bottom: 2mm !important;
+    page-break-inside: auto !important;
+  }
+
+  html body .timesheet-print-page thead,
+  html body [data-testid="timesheet-print-page"] thead {
+    display: table-header-group !important;
+  }
+
+  html body .timesheet-print-page tr,
+  html body [data-testid="timesheet-print-page"] tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  html body .timesheet-print-page th,
+  html body .timesheet-print-page td,
+  html body [data-testid="timesheet-print-page"] th,
+  html body [data-testid="timesheet-print-page"] td {
+    padding: 1.2mm 1.1mm !important;
+    font-size: 6.35pt !important;
+    line-height: 1.05 !important;
+    vertical-align: top !important;
+    overflow-wrap: anywhere !important;
+    word-break: normal !important;
+  }
+
+  html body .timesheet-print-page th,
+  html body [data-testid="timesheet-print-page"] th {
+    font-size: 5.8pt !important;
+    line-height: 1 !important;
+    font-weight: 700 !important;
+    white-space: nowrap !important;
+  }
+
+  html body .timesheet-print-page td:nth-child(1),
+  html body [data-testid="timesheet-print-page"] td:nth-child(1) {
+    width: 8% !important;
+    font-weight: 700 !important;
+  }
+
+  html body .timesheet-print-page td:nth-child(2),
+  html body [data-testid="timesheet-print-page"] td:nth-child(2) {
+    width: 7% !important;
+  }
+
+  html body .timesheet-print-page td:nth-child(3),
+  html body .timesheet-print-page td:nth-child(4),
+  html body .timesheet-print-page td:nth-child(5),
+  html body .timesheet-print-page td:nth-child(6),
+  html body [data-testid="timesheet-print-page"] td:nth-child(3),
+  html body [data-testid="timesheet-print-page"] td:nth-child(4),
+  html body [data-testid="timesheet-print-page"] td:nth-child(5),
+  html body [data-testid="timesheet-print-page"] td:nth-child(6) {
+    width: 7% !important;
+    white-space: nowrap !important;
+  }
+
+  html body .timesheet-print-page td:nth-child(7),
+  html body .timesheet-print-page td:nth-child(8),
+  html body [data-testid="timesheet-print-page"] td:nth-child(7),
+  html body [data-testid="timesheet-print-page"] td:nth-child(8) {
+    width: 7% !important;
+    white-space: nowrap !important;
+  }
+
+  html body .timesheet-print-page td:nth-child(9),
+  html body [data-testid="timesheet-print-page"] td:nth-child(9) {
+    width: 12% !important;
+  }
+
+  html body .timesheet-print-page td:nth-child(10),
+  html body [data-testid="timesheet-print-page"] td:nth-child(10) {
+    width: 31% !important;
+    font-size: 6.1pt !important;
+  }
+
+  html body .timesheet-print-page img,
+  html body [data-testid="timesheet-print-page"] img {
+    max-width: 100% !important;
+    object-fit: contain !important;
+  }
+
+  html body .timesheet-print-page img[alt*="Signature"],
+  html body .timesheet-print-page [data-testid*="signature"] img,
+  html body [data-testid="timesheet-print-page"] img[alt*="Signature"],
+  html body [data-testid="timesheet-print-page"] [data-testid*="signature"] img {
+    max-height: 22mm !important;
+    max-width: 55mm !important;
+  }
+
+  html body .timesheet-print-page [data-testid*="signature"],
+  html body [data-testid="timesheet-print-page"] [data-testid*="signature"] {
+    margin-top: 1mm !important;
+    margin-bottom: 1mm !important;
+    padding: 1.5mm !important;
+    min-height: 0 !important;
+  }
+
+  html body .timesheet-print-page textarea,
+  html body [data-testid="timesheet-print-page"] textarea {
+    min-height: 0 !important;
+    max-height: 16mm !important;
+    padding: 1.5mm !important;
+    font-size: 6.4pt !important;
+    line-height: 1.05 !important;
+  }
+
+  html body .timesheet-print-page .space-y-6,
+  html body .timesheet-print-page .space-y-4,
+  html body [data-testid="timesheet-print-page"] .space-y-6,
+  html body [data-testid="timesheet-print-page"] .space-y-4 {
+    gap: 1.5mm !important;
+  }
+}
+/* END TIMESHEET MANAGER / A4 PORTRAIT COMPACT PRINT V2 */
