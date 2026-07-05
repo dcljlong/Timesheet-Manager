@@ -382,6 +382,215 @@ export default function TimesheetView() {
       toast.error(`Excel export failed: ${message}`);
     }
   };
+
+  const exportSmartlyCsv = () => {
+    // TIMESHEET MANAGER / CURRENT TIMESHEET SMARTLY CSV EXPORT V1B
+    // Exports this approved timesheet using Smartly payroll columns with editable blank PayGroup and Staff Number.
+    try {
+      if (!timesheet) {
+        toast.error("Timesheet is still loading. Try again in a moment.");
+        return;
+      }
+
+      if (user?.role !== "admin") {
+        toast.error("Smartly CSV export is admin-only.");
+        return;
+      }
+
+      if (timesheet.status !== "approved") {
+        toast.error("Smartly CSV export is only available after admin approval.");
+        return;
+      }
+
+      const employeeName = timesheet.employee_name || timesheet.employeeName || "Unknown Employee";
+      const nameParts = String(employeeName).trim().split(/\s+/).filter(Boolean);
+      const firstName = nameParts[0] || "";
+      const surname = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
+
+      const weekEndingRaw = timesheet.week_ending || timesheet.weekEnding || "";
+      const parsedWeekEnding = weekEndingRaw ? new Date(weekEndingRaw) : null;
+      const hasValidWeekEnding = parsedWeekEnding && !Number.isNaN(parsedWeekEnding.getTime());
+      const weekEnding = hasValidWeekEnding ? format(parsedWeekEnding, "yyyy-MM-dd") : "unknown-week";
+
+      const payGroup = timesheet.smartly_pay_group || timesheet.pay_group || "";
+      const staffNumber = timesheet.smartly_employee_code || timesheet.staff_number || "";
+
+      const cleanSmartlyTime = (value) => {
+        const raw = String(value || "").trim();
+        if (!raw) return "";
+        const match = raw.match(/^(\d{1,2}):(\d{2})/);
+        if (!match) return raw;
+        return `${match[1].padStart(2, "0")}:${match[2]}`;
+      };
+
+      const parseSmartlyBreakMinutes = (value) => {
+        const raw = String(value ?? "").trim().toLowerCase();
+        if (!raw || raw === "no lunch" || raw === "none") return "0";
+        const match = raw.match(/-?\d+(\.\d+)?/);
+        if (!match) return "0";
+        const minutes = parseFloat(match[0]);
+        return Number.isFinite(minutes) ? String(minutes) : "0";
+      };
+
+      const formatSmartlyHours = (value) => {
+        const hours = parseFloat(value);
+        if (!Number.isFinite(hours)) return "";
+        return Number.isInteger(hours) ? hours.toFixed(1) : String(Math.round(hours * 100) / 100);
+      };
+
+      const getSmartlyWorkDate = (day, dayIndex) => {
+        const explicitDate = day?.date || day?.work_date || day?.day_date;
+        if (explicitDate) {
+          const parsed = new Date(explicitDate);
+          if (!Number.isNaN(parsed.getTime())) return parsed;
+        }
+
+        if (!hasValidWeekEnding) return null;
+
+        const dayLabel = String(getExcelCsvDayLabel(day) || "").trim().toLowerCase();
+        const daysBeforeWeekEnding = {
+          monday: 6,
+          tuesday: 5,
+          wednesday: 4,
+          thursday: 3,
+          friday: 2,
+          saturday: 1,
+          sunday: 0
+        };
+
+        const offset = Object.prototype.hasOwnProperty.call(daysBeforeWeekEnding, dayLabel)
+          ? daysBeforeWeekEnding[dayLabel]
+          : Math.max(0, 6 - dayIndex);
+
+        const workDate = new Date(parsedWeekEnding);
+        workDate.setDate(workDate.getDate() - offset);
+        return workDate;
+      };
+
+      const formatSmartlyDateTime = (workDate, timeValue) => {
+        const timeText = cleanSmartlyTime(timeValue);
+        if (!workDate || Number.isNaN(workDate.getTime())) return timeText;
+        if (!timeText) return "";
+        return `${format(workDate, "dd/MM/yyyy")} ${timeText}`;
+      };
+
+      const getSmartlyCostedTo = (entry) => {
+        const jobNumber = entry.job_number || entry.job_no || entry.jobNumber || "";
+        const taskCode = entry.task_code || entry.code || "";
+        const taskDescription = entry.task_code_description || entry.task_description || entry.code_description || "";
+        const codeText = [taskCode, taskDescription].filter(Boolean).join(" - ");
+        return [jobNumber, codeText].filter(Boolean).join(" > ");
+      };
+
+      const rows = [[
+        "PayGroup",
+        "Staff Number",
+        "First Name",
+        "Surname",
+        "Status",
+        "StartTime",
+        "EndTime",
+        "Break",
+        "HoursWorked",
+        "Costed To",
+        "Employee Comments",
+        "Approver Comments"
+      ]];
+
+      (timesheet.days || []).forEach((day, dayIndex) => {
+        const workDate = getSmartlyWorkDate(day, dayIndex);
+
+        (day.entries || []).forEach((entry) => {
+          const entryType = normaliseEntryTypeForView(entry.type || "work");
+          if (isNoWorkEntryType(entry.type) || entryType !== "work") {
+            return;
+          }
+
+          const hoursWorked = formatSmartlyHours(entry.total_hours);
+          if (!hoursWorked) {
+            return;
+          }
+
+          rows.push([
+            payGroup,
+            staffNumber,
+            firstName,
+            surname,
+            "Approved",
+            formatSmartlyDateTime(workDate, entry.start_time),
+            formatSmartlyDateTime(workDate, entry.finish_time),
+            parseSmartlyBreakMinutes(entry.lunch_duration),
+            hoursWorked,
+            getSmartlyCostedTo(entry),
+            entry.description || entry.notes || "",
+            ""
+          ]);
+        });
+      });
+
+      if (rows.length <= 1) {
+        toast.error("No Smartly work rows found on this approved timesheet.");
+        return;
+      }
+
+      const csv = "\uFEFF" + rows
+        .map((row) => row.map(escapeExcelCsvValue).join(","))
+        .join("\r\n");
+
+      const safeEmployee = employeeName
+        .replace(/[^a-z0-9]+/gi, "-")
+        .replace(/^-+|-+$/g, "")
+        .toLowerCase() || "timesheet";
+
+      const filename = `smartly-timesheet-${safeEmployee}-week-ending-${weekEnding}.csv`;
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+
+      if (window.navigator && window.navigator.msSaveOrOpenBlob) {
+        window.navigator.msSaveOrOpenBlob(blob, filename);
+        toast.success(`Smartly CSV exported: ${filename}`);
+        return;
+      }
+
+      const url = window.URL.createObjectURL(blob);
+
+      window.__lastTimesheetSmartlyCsvExport = {
+        filename,
+        csv,
+        generatedAt: new Date().toISOString()
+      };
+
+      setExcelExportFallback((previous) => {
+        if (previous && previous.url) {
+          try {
+            window.URL.revokeObjectURL(previous.url);
+          } catch (revokeError) {
+            // Ignore cleanup failure.
+          }
+        }
+        return { filename, url };
+      });
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.setAttribute("download", filename);
+      link.setAttribute("data-testid", "current-timesheet-smartly-download-link");
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+
+      setTimeout(() => {
+        link.remove();
+      }, 0);
+
+      toast.success(`Smartly CSV export started: ${filename}. PayGroup and Staff Number columns can be filled in Excel.`);
+    } catch (error) {
+      console.error("Current timesheet Smartly CSV export failed", error);
+      const message = error && error.message ? error.message : String(error);
+      toast.error(`Smartly CSV export failed: ${message}`);
+    }
+  };
+
   const exportPDF = () => {
     // Print-friendly version
     window.print();
@@ -489,13 +698,27 @@ export default function TimesheetView() {
               onClick={exportExcelCsv}
               className="w-full px-3 py-2 text-sm sm:w-auto"
               data-testid="export-excel-button"
-              data-export-scope="current-timesheet"
-              title="Export this open timesheet only, not the dashboard list"
+              data-export-scope="current-timesheet-summary"
+              title="Export a human-readable timesheet summary for review, not Smartly payroll import"
             >
               <Download className="w-4 h-4 mr-2" />
-              <span className="sm:hidden">Export CSV</span>
-              <span className="hidden sm:inline">Export this timesheet to Excel</span>
+              <span className="sm:hidden">Summary CSV</span>
+              <span className="hidden sm:inline">Export Timesheet Summary</span>
             </Button>
+            {user?.role === "admin" && timesheet.status === "approved" && (
+              <Button
+                variant="outline"
+                onClick={exportSmartlyCsv}
+                className="w-full px-3 py-2 text-sm font-semibold text-emerald-800 border-emerald-300 hover:bg-emerald-50 sm:w-auto"
+                data-testid="export-current-smartly-csv-button"
+                data-export-scope="current-timesheet-smartly"
+                title="Export this approved timesheet in Smartly payroll CSV layout with editable blank PayGroup and Staff Number columns"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                <span className="sm:hidden">Smartly CSV</span>
+                <span className="hidden sm:inline">Export Smartly CSV</span>
+              </Button>
+            )}
             {excelExportFallback && (
               <a
                 href={excelExportFallback.url}
@@ -505,7 +728,7 @@ export default function TimesheetView() {
                 title={`Manual download for ${excelExportFallback.filename}`}
               >
                 <Download className="w-4 h-4 mr-2" />
-                Download prepared Excel CSV
+                Download prepared CSV
               </a>
             )}
             <Button variant="outline" onClick={exportPDF} className="w-full px-3 py-2 text-sm sm:w-auto" data-testid="export-button">
