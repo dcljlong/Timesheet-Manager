@@ -1775,8 +1775,11 @@ async def export_smartly_batch_csv(
 
     output = io.StringIO()
     writer = csv.writer(output)
+    # TIMESHEET MANAGER / SMARTLY STAFF NUMBER COLUMN V1C
+    # Staff Number exports from smartly_employee_code and stays blank until payroll setup is complete.
     writer.writerow([
         "PayGroup",
+        "Staff Number",
         "First Name",
         "Surname",
         "Status",
@@ -1790,8 +1793,11 @@ async def export_smartly_batch_csv(
     ])
 
     for row in bundle["ready_rows"]:
+        # TIMESHEET MANAGER / SMARTLY STAFF NUMBER COLUMN ORDER FIX V1E
+        # Data row order matches header: PayGroup, Staff Number, First Name.
         writer.writerow([
             row["pay_group"],
+            row.get("smartly_employee_code", ""),
             row["first_name"],
             row["surname"],
             row["status"],
