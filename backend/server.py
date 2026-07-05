@@ -1571,24 +1571,9 @@ async def _build_smartly_export_bundle(week_ending: Optional[str] = None, pay_gr
             })
             continue
 
-        if not smartly_employee_code:
-            issues.append({
-                "timesheet_id": timesheet_id,
-                "employee_name": employee_name,
-                "week_ending": week_value,
-                "reason": "Missing Smartly employee code"
-            })
-            continue
-
-        if not smartly_pay_group:
-            issues.append({
-                "timesheet_id": timesheet_id,
-                "employee_name": employee_name,
-                "week_ending": week_value,
-                "reason": "Missing Smartly pay group"
-            })
-            continue
-
+        # TIMESHEET MANAGER / SMARTLY BLANK PAYROLL FIELDS EXPORT V1
+        # Smartly employee code and pay group are allowed to export blank while payroll setup is incomplete.
+        # Other true data issues, such as disabled task codes or missing required costing codes, still block export rows.
         has_ready_rows = False
 
         for day in (timesheet.get("days", []) or []):
@@ -1723,7 +1708,8 @@ async def _build_smartly_export_bundle(week_ending: Optional[str] = None, pay_gr
                     "matched_user_by": matched_user_by
                 })
 
-                ready_pay_groups.add(smartly_pay_group)
+                if smartly_pay_group:
+                    ready_pay_groups.add(smartly_pay_group)
                 ready_timesheet_ids.add(timesheet_id)
                 ready_user_ids.add(user_id)
                 has_ready_rows = True
