@@ -23,6 +23,7 @@ export default function TimesheetView() {
   const [pmSignature, setPmSignature] = useState(null);
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [voidingTest, setVoidingTest] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -60,13 +61,15 @@ export default function TimesheetView() {
       submitted: "badge badge-submitted",
       pm_approved: "badge badge-pm-approved",
       approved: "badge badge-approved",
-      rejected: "badge badge-rejected"
+      rejected: "badge badge-rejected",
+      voided_test: "badge badge-rejected"
     };
     const labels = {
       submitted: "Pending PM Approval",
       pm_approved: "Pending Admin Approval",
       approved: "Approved",
-      rejected: "Not Approved"
+      rejected: "Not Approved",
+      voided_test: "Voided Test"
     };
     return <span className={badges[status] || "badge"}>{labels[status] || status}</span>;
   };
@@ -169,6 +172,11 @@ export default function TimesheetView() {
     return user?.role === "admin" && timesheet.status === "rejected";
   };
 
+  const canVoidApprovedTestTimesheet = () => {
+    if (!timesheet) return false;
+    return user?.role === "admin" && timesheet.status === "approved";
+  };
+
   const handleDeleteRejectedTimesheet = async () => {
     const ok = window.confirm(
       "Delete this rejected timesheet? This only removes a rejected, unprocessed review record. Processed/exported timesheets need an adjustment instead."
@@ -185,6 +193,41 @@ export default function TimesheetView() {
       toast.error(formatApiError(err, "Delete failed"));
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleVoidApprovedTestTimesheet = async () => {
+    const reason = window.prompt(
+      "Void this approved TEST timesheet? This keeps the record for audit but removes it from active payroll/admin lists. Enter reason:"
+    );
+
+    if (reason === null) return;
+
+    const cleanedReason = reason.trim();
+    if (!cleanedReason) {
+      toast.error("Void reason is required");
+      return;
+    }
+
+    const ok = window.confirm(
+      "Confirm void approved test timesheet? This is only for test cleanup before payroll/export/sync. It does not hard-delete the record."
+    );
+
+    if (!ok) return;
+
+    setVoidingTest(true);
+    try {
+      await axios.post(
+        `${API}/timesheets/${id}/void-approved-test`,
+        { reason: cleanedReason },
+        { withCredentials: true }
+      );
+      toast.success("Approved test timesheet voided");
+      navigate("/admin");
+    } catch (err) {
+      toast.error(formatApiError(err, "Void failed"));
+    } finally {
+      setVoidingTest(false);
     }
   };
 
@@ -278,6 +321,18 @@ export default function TimesheetView() {
                 {deleting ? "Deleting..." : (<><span className="sm:hidden">Delete</span><span className="hidden sm:inline">Delete rejected</span></>)}
               </Button>
             )}
+            {canVoidApprovedTestTimesheet() && (
+              <Button
+                variant="outline"
+                onClick={handleVoidApprovedTestTimesheet}
+                className="w-full px-3 py-2 text-sm text-orange-700 border-orange-300 hover:bg-orange-50 sm:w-auto"
+                disabled={voidingTest}
+                data-testid="void-approved-test-timesheet-button"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                {voidingTest ? "Voiding..." : (<><span className="sm:hidden">Void</span><span className="hidden sm:inline">Void test</span></>)}
+              </Button>
+            )}
             <Button variant="outline" onClick={exportPDF} className="w-full px-3 py-2 text-sm sm:w-auto" data-testid="export-button">
               <Download className="w-4 h-4 mr-2" />
               Print / Save PDF
@@ -336,6 +391,19 @@ export default function TimesheetView() {
             <div className="mb-5 p-4 bg-red-50 border border-red-200 rounded">
               <p className="font-medium text-red-800">Not Approved Reason:</p>
               <p className="text-red-700">{timesheet.rejection_comment}</p>
+            </div>
+          )}
+
+          {/* Voided Test Notice */}
+          {timesheet.status === "voided_test" && (
+            <div className="mb-5 p-4 bg-orange-50 border border-orange-200 rounded">
+              <p className="font-medium text-orange-900">Voided Test Timesheet</p>
+              <p className="text-orange-800">{timesheet.void_reason || "Voided as approved test cleanup."}</p>
+              {timesheet.voided_at && (
+                <p className="mt-1 text-sm text-orange-700">
+                  Voided at {timesheet.voided_at} by {timesheet.voided_by_email || timesheet.voided_by_name || "admin"}
+                </p>
+              )}
             </div>
           )}
 

@@ -179,6 +179,9 @@ class TimesheetApproval(BaseModel):
     comment: Optional[str] = None
     signature: Optional[str] = None  # Base64 encoded PM signature
 
+class TimesheetVoidApprovedTest(BaseModel):
+    reason: Optional[str] = None
+
 class NotificationSettingsUpdate(BaseModel):
     reminder_time: str  # HH:MM format
     reminder_day: str = "Friday"  # Day of week for weekly submission reminder
@@ -1340,6 +1343,8 @@ async def get_timesheets(request: Request, status: Optional[str] = None):
 
     if status:
         query["status"] = status
+    else:
+        query["status"] = {"$ne": "voided_test"}
 
     timesheets = await db.timesheets.find(query, {
         "_id": 1,
@@ -1898,6 +1903,8 @@ async def export_timesheets_csv(
     query = {}
     if status and status != "all":
         query["status"] = status_map.get(status, status)
+    else:
+        query["status"] = {"$ne": "voided_test"}
     if week_ending and week_ending != "all":
         query["week_ending"] = week_ending
 
@@ -2046,6 +2053,8 @@ async def export_fitoutos_labour_json(
     query = {}
     if status and status != "all":
         query["status"] = status_map.get(status, status)
+    else:
+        query["status"] = {"$ne": "voided_test"}
     if week_ending and week_ending != "all":
         query["week_ending"] = week_ending
 
@@ -2475,6 +2484,11 @@ async def get_timesheet(timesheet_id: str, request: Request):
         "rejection_comment": timesheet.get("rejection_comment"),
         "rejection_audit_trail": timesheet.get("rejection_audit_trail", []),
         "deletion_audit_trail": timesheet.get("deletion_audit_trail", []),
+        "void_reason": timesheet.get("void_reason"),
+        "voided_at": timesheet.get("voided_at").isoformat() if isinstance(timesheet.get("voided_at"), datetime) else timesheet.get("voided_at"),
+        "voided_by_email": timesheet.get("voided_by_email"),
+        "voided_by_name": timesheet.get("voided_by_name"),
+        "void_audit_trail": timesheet.get("void_audit_trail", []),
         "pm_last_edited_by": timesheet.get("pm_last_edited_by"),
         "pm_last_edited_name": timesheet.get("pm_last_edited_name"),
         "pm_last_edited_at": timesheet.get("pm_last_edited_at").isoformat() if isinstance(timesheet.get("pm_last_edited_at"), datetime) else timesheet.get("pm_last_edited_at"),
@@ -2659,6 +2673,116 @@ async def delete_timesheet(timesheet_id: str, request: Request):
         }}
     )
     return {"message": "Rejected unprocessed timesheet deleted"}
+
+@api_router.post("/timesheets/{timesheet_id}/void-approved-test")
+async def void_approved_test_timesheet(timesheet_id: str, body: TimesheetVoidApprovedTest, request: Request):
+    # TIMESHEET MANAGER / VOID APPROVED TEST ROUTE V1
+    # Does not hard-delete approved records. Used only for approved test cleanup before payroll/export/sync.
+    user = await get_current_user(request)
+
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    timesheet = await db.timesheets.find_one({"_id": ObjectId(timesheet_id)})
+    if not timesheet:
+        raise HTTPException(status_code=404, detail="Timesheet not found")
+
+    if timesheet.get("status") != "approved":
+        raise HTTPException(
+            status_code=400,
+            detail="Only approved test timesheets can be voided through this cleanup action."
+        )
+
+    blocked_markers = [
+        "payroll_export_ready",
+        "smartly_exported",
+        "exported",
+        "processed",
+        "fitoutos_synced",
+        "fitoutos_pushed",
+        "actuals_synced",
+        "synced_to_fitoutos",
+    ]
+
+    if any(bool(timesheet.get(marker)) for marker in blocked_markers):
+        raise HTTPException(
+            status_code=400,
+            detail="Exported, synced, or processed timesheets need an adjustment/reversal instead of test voiding."
+        )
+
+    reason = (body.reason or "").strip()
+    if not reason:
+        raise HTTPException(status_code=400, detail="Void reason is required.")
+
+    voided_job_numbers = []
+    voided_task_codes = []
+    for day in timesheet.get("days", []) or []:
+        for entry in day.get("entries", []) or []:
+            job_number = str(entry.get("job_number") or "").strip()
+            task_code = str(entry.get("task_code") or "").strip()
+            if job_number and job_number not in voided_job_numbers:
+                voided_job_numbers.append(job_number)
+            if task_code and task_code not in voided_task_codes:
+                voided_task_codes.append(task_code)
+
+    void_now_dt = datetime.now(timezone.utc)
+    void_now = void_now_dt.isoformat()
+
+    audit_entry = {
+        "timesheet_id": str(timesheet["_id"]),
+        "action": "voided_approved_test_timesheet",
+        "at": void_now,
+        "by_user_id": user.get("id"),
+        "by_email": user.get("email"),
+        "by_name": user.get("name"),
+        "actor_email": user.get("email"),
+        "actor_name": user.get("name"),
+        "employee_name": timesheet.get("employee_name"),
+        "user_id": timesheet.get("user_id"),
+        "week_ending": timesheet.get("week_ending"),
+        "total_hours": timesheet.get("total_hours"),
+        "job_numbers": voided_job_numbers,
+        "task_codes": voided_task_codes,
+        "status_at_void": timesheet.get("status"),
+        "status_after_void": "voided_test",
+        "reason": reason,
+        "source": "void_approved_test_route_v1"
+    }
+
+    audit_result = await db.timesheet_audit_trail.insert_one(audit_entry)
+
+    update_result = await db.timesheets.update_one(
+        {"_id": ObjectId(timesheet_id)},
+        {
+            "$set": {
+                "status": "voided_test",
+                "voided_test": True,
+                "void_reason": reason,
+                "voided_at": void_now_dt,
+                "voided_by": user.get("id"),
+                "voided_by_email": user.get("email"),
+                "voided_by_name": user.get("name"),
+                "payroll_excluded_reason": "voided approved test timesheet",
+                "updated_at": void_now_dt
+            },
+            "$push": {
+                "void_audit_trail": audit_entry
+            }
+        }
+    )
+
+    if update_result.modified_count != 1:
+        await db.timesheet_audit_trail.update_one(
+            {"_id": audit_result.inserted_id},
+            {"$set": {
+                "action": "void_approved_test_timesheet_failed",
+                "void_failed_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+        raise HTTPException(status_code=500, detail="Timesheet void failed after audit record was created")
+
+    return {"message": "Approved test timesheet voided and retained for audit"}
+
 @api_router.post("/timesheets/{timesheet_id}/pm-approve")
 async def pm_approve_timesheet(timesheet_id: str, approval: TimesheetApproval, request: Request):
     user = await get_current_user(request)
@@ -3215,7 +3339,7 @@ async def get_dashboard_stats(request: Request):
     user = await get_current_user(request)
 
     if user["role"] == "admin":
-        total = await db.timesheets.count_documents({})
+        total = await db.timesheets.count_documents({"status": {"$ne": "voided_test"}})
         pending_pm = await db.timesheets.count_documents({"status": "submitted"})
         pending_admin = await db.timesheets.count_documents({"status": "pm_approved"})
         approved = await db.timesheets.count_documents({"status": "approved"})
@@ -3233,10 +3357,10 @@ async def get_dashboard_stats(request: Request):
             pending = await db.timesheets.count_documents({"pm_ids": str(pm["_id"]), "status": "submitted"})
         else:
             pending = 0
-        my_total = await db.timesheets.count_documents({"user_id": user["id"]})
+        my_total = await db.timesheets.count_documents({"user_id": user["id"], "status": {"$ne": "voided_test"}})
         return {"pending_approval": pending, "my_timesheets": my_total}
     else:
-        my_total = await db.timesheets.count_documents({"user_id": user["id"]})
+        my_total = await db.timesheets.count_documents({"user_id": user["id"], "status": {"$ne": "voided_test"}})
         my_approved = await db.timesheets.count_documents({"user_id": user["id"], "status": "approved"})
         my_pending = await db.timesheets.count_documents({"user_id": user["id"], "status": {"$in": ["submitted", "pm_approved"]}})
         return {"total": my_total, "approved": my_approved, "pending": my_pending}

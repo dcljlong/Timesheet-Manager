@@ -25,6 +25,8 @@ const formatAction = (action) => {
     delete_rejected_timesheet_requested: "Delete requested",
     delete_rejected_timesheet_failed: "Delete failed",
     deleted_rejected_timesheet: "Deleted rejected timesheet",
+    voided_approved_test_timesheet: "Voided approved test timesheet",
+    void_approved_test_timesheet_failed: "Void approved test failed",
   };
 
   return labels[action] || String(action || "Audit event").replace(/_/g, " ");
@@ -120,7 +122,10 @@ export default function ManageAuditLog() {
   const deletedRejectedEntries = useMemo(() => {
     return entries.filter((entry) => {
       const action = String(entry?.action || "");
-      return action.includes("delete_rejected") || action === "deleted_rejected_timesheet";
+      return action.includes("delete_rejected") ||
+        action === "deleted_rejected_timesheet" ||
+        action.includes("void_approved_test") ||
+        action.includes("voided_approved_test");
     });
   }, [entries]);
 
