@@ -247,7 +247,7 @@ export default function TimesheetView() {
   };
 
   const exportExcelCsv = () => {
-    // TIMESHEET MANAGER / EXPORT EXCEL CSV V1
+    // TIMESHEET MANAGER / EXPORT EXCEL CSV V2
     // Exports the current timesheet summary as an Excel-compatible CSV file.
     if (!timesheet) return;
 
@@ -331,17 +331,35 @@ export default function TimesheetView() {
 
     const filename = `timesheet-${safeEmployee}-week-ending-${weekEnding}.csv`;
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+
+    if (window.navigator && window.navigator.msSaveOrOpenBlob) {
+      window.navigator.msSaveOrOpenBlob(blob, filename);
+      toast.success(`Exported ${filename}`);
+      return;
+    }
+
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
 
     link.href = url;
+    link.download = filename;
     link.setAttribute("download", filename);
+    link.setAttribute("data-testid", "current-timesheet-excel-download-link");
+    link.style.display = "none";
     document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
 
-    toast.success("Excel CSV exported");
+    link.dispatchEvent(new MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+      view: window
+    }));
+
+    setTimeout(() => {
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    }, 1000);
+
+    toast.success(`Exported ${filename}`);
   };
 
   const exportPDF = () => {
@@ -446,9 +464,17 @@ export default function TimesheetView() {
                 {voidingTest ? "Voiding..." : (<><span className="sm:hidden">Void TEST</span><span className="hidden sm:inline">Void TEST timesheet</span></>)}
               </Button>
             )}
-            <Button variant="outline" onClick={exportExcelCsv} className="w-full px-3 py-2 text-sm sm:w-auto" data-testid="export-excel-button">
+            <Button
+              variant="outline"
+              onClick={exportExcelCsv}
+              className="w-full px-3 py-2 text-sm sm:w-auto"
+              data-testid="export-excel-button"
+              data-export-scope="current-timesheet"
+              title="Export this open timesheet only, not the dashboard list"
+            >
               <Download className="w-4 h-4 mr-2" />
-              Export Excel
+              <span className="sm:hidden">Export CSV</span>
+              <span className="hidden sm:inline">Export this timesheet to Excel</span>
             </Button>
             <Button variant="outline" onClick={exportPDF} className="w-full px-3 py-2 text-sm sm:w-auto" data-testid="export-button">
               <Download className="w-4 h-4 mr-2" />
