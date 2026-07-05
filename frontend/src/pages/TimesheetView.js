@@ -937,6 +937,114 @@ export default function TimesheetView() {
             min-height: 0 !important;
           }
         }
+        /* TIMESHEET MANAGER / PDF COLUMN DENSITY V4 */
+        /* timesheet-pdf-column-density-v4
+           Tightens fixed payroll columns and gives Description more print width.
+           Also strengthens the outer table border so all outside lines show in PDF.
+        */
+        @media print {
+          [data-testid="timesheet-print-document"].timesheet-print-page {
+            width: 202mm !important;
+            min-width: 202mm !important;
+            max-width: 202mm !important;
+            padding: 2.5mm !important;
+          }
+
+          [data-testid="timesheet-print-document"].timesheet-print-page table {
+            width: 100% !important;
+            max-width: 100% !important;
+            table-layout: fixed !important;
+            border-collapse: collapse !important;
+            border: 1.25px solid #6b7280 !important;
+            outline: 1px solid #6b7280 !important;
+            outline-offset: -1px !important;
+          }
+
+          [data-testid="timesheet-print-document"].timesheet-print-page th,
+          [data-testid="timesheet-print-document"].timesheet-print-page td {
+            padding: 0.72mm 0.55mm !important;
+            border: 0.85px solid #9ca3af !important;
+            line-height: 1.02 !important;
+          }
+
+          [data-testid="timesheet-print-document"].timesheet-print-page th {
+            font-size: 5.35pt !important;
+            letter-spacing: -0.02em !important;
+          }
+
+          [data-testid="timesheet-print-document"].timesheet-print-page td {
+            font-size: 5.95pt !important;
+          }
+
+          [data-testid="timesheet-print-document"].timesheet-print-page th:nth-child(1),
+          [data-testid="timesheet-print-document"].timesheet-print-page td:nth-child(1) {
+            width: 8.5% !important;
+          }
+
+          [data-testid="timesheet-print-document"].timesheet-print-page th:nth-child(2),
+          [data-testid="timesheet-print-document"].timesheet-print-page td:nth-child(2) {
+            width: 6.5% !important;
+          }
+
+          [data-testid="timesheet-print-document"].timesheet-print-page th:nth-child(3),
+          [data-testid="timesheet-print-document"].timesheet-print-page td:nth-child(3),
+          [data-testid="timesheet-print-document"].timesheet-print-page th:nth-child(4),
+          [data-testid="timesheet-print-document"].timesheet-print-page td:nth-child(4),
+          [data-testid="timesheet-print-document"].timesheet-print-page th:nth-child(5),
+          [data-testid="timesheet-print-document"].timesheet-print-page td:nth-child(5),
+          [data-testid="timesheet-print-document"].timesheet-print-page th:nth-child(6),
+          [data-testid="timesheet-print-document"].timesheet-print-page td:nth-child(6) {
+            width: 6.2% !important;
+            white-space: nowrap !important;
+          }
+
+          [data-testid="timesheet-print-document"].timesheet-print-page th:nth-child(7),
+          [data-testid="timesheet-print-document"].timesheet-print-page td:nth-child(7) {
+            width: 6.7% !important;
+            white-space: nowrap !important;
+          }
+
+          [data-testid="timesheet-print-document"].timesheet-print-page th:nth-child(8),
+          [data-testid="timesheet-print-document"].timesheet-print-page td:nth-child(8) {
+            width: 6.2% !important;
+            white-space: nowrap !important;
+          }
+
+          [data-testid="timesheet-print-document"].timesheet-print-page th:nth-child(9),
+          [data-testid="timesheet-print-document"].timesheet-print-page td:nth-child(9) {
+            width: 12.2% !important;
+            font-size: 5.35pt !important;
+            white-space: normal !important;
+            overflow-wrap: normal !important;
+          }
+
+          [data-testid="timesheet-print-document"].timesheet-print-page th:nth-child(10),
+          [data-testid="timesheet-print-document"].timesheet-print-page td:nth-child(10) {
+            width: 35.7% !important;
+            font-size: 6.05pt !important;
+            white-space: normal !important;
+            overflow-wrap: break-word !important;
+            word-break: normal !important;
+          }
+
+          [data-testid="timesheet-print-document"].timesheet-print-page tr > th:first-child,
+          [data-testid="timesheet-print-document"].timesheet-print-page tr > td:first-child {
+            border-left: 1.25px solid #6b7280 !important;
+          }
+
+          [data-testid="timesheet-print-document"].timesheet-print-page tr > th:last-child,
+          [data-testid="timesheet-print-document"].timesheet-print-page tr > td:last-child {
+            border-right: 1.25px solid #6b7280 !important;
+          }
+
+          [data-testid="timesheet-print-document"].timesheet-print-page table tr:first-child th {
+            border-top: 1.25px solid #6b7280 !important;
+          }
+
+          [data-testid="timesheet-print-document"].timesheet-print-page table tr:last-child td {
+            border-bottom: 1.25px solid #6b7280 !important;
+          }
+        }
       `}</style>
     </Layout>
   );
