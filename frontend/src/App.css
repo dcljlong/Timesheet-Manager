@@ -4512,3 +4512,148 @@ button[aria-label*="Collapse day"]:focus-visible {
     font-size: 0.7rem !important;
   }
 }
+
+/* TIMESHEET MANAGER / MOBILE SINGLE OPEN TASK V1
+   Each task stays as a compact summary row until selected. Opening or adding a
+   task leaves every other task for that day collapsed and easy to distinguish.
+*/
+@media (max-width: 1023px) {
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-list {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-card,
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-card-1,
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-card-2,
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-card-3,
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-card-4 {
+    padding: 0 !important;
+    border: 1px solid rgba(148, 163, 184, 0.42) !important;
+    border-left: 0.25rem solid #d9a441 !important;
+    border-radius: 0.72rem !important;
+    background: #ffffff !important;
+    box-shadow: 0 2px 7px rgba(15, 23, 42, 0.06) !important;
+    overflow: hidden !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-summary-row,
+  [data-testid="timesheet-mobile-grid"] button[data-testid^="mobile-toggle-entry-"].mobile-entry-summary-row {
+    display: grid !important;
+    grid-template-columns: auto minmax(0, 1fr) auto 0.75rem !important;
+    align-items: center !important;
+    gap: 0.48rem !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 3.15rem !important;
+    margin: 0 !important;
+    padding: 0.56rem 0.68rem !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: none !important;
+    text-align: left !important;
+    white-space: nowrap !important;
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-card.is-expanded .mobile-entry-summary-row {
+    background: #fff8e8 !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-summary-row > * {
+    min-width: 0 !important;
+    margin: 0 !important;
+    white-space: nowrap !important;
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+    writing-mode: horizontal-tb !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-summary-name {
+    color: #92400e !important;
+    font-size: 0.76rem !important;
+    font-weight: 900 !important;
+    line-height: 1 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.035em !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-summary-detail {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    color: #334155 !important;
+    font-size: 0.76rem !important;
+    font-weight: 750 !important;
+    line-height: 1.1 !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-summary-total {
+    color: #0f172a !important;
+    font-size: 0.78rem !important;
+    font-weight: 900 !important;
+    line-height: 1 !important;
+    text-align: right !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-summary-chevron {
+    color: #64748b !important;
+    font-size: 1.25rem !important;
+    font-weight: 900 !important;
+    line-height: 0.8 !important;
+    text-align: right !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-editor {
+    padding: 0.8rem !important;
+    border-top: 1px solid rgba(148, 163, 184, 0.25) !important;
+    background: #ffffff !important;
+  }
+
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-entry-card,
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-entry-card-1,
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-entry-card-2,
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-entry-card-3,
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-entry-card-4,
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-entry-summary-row,
+  .dark [data-testid="timesheet-mobile-grid"] button[data-testid^="mobile-toggle-entry-"].mobile-entry-summary-row,
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-entry-editor {
+    background: rgba(15, 23, 42, 0.98) !important;
+    border-color: rgba(245, 190, 80, 0.38) !important;
+  }
+
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-entry-card.is-expanded .mobile-entry-summary-row {
+    background: rgba(80, 57, 19, 0.72) !important;
+  }
+
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-entry-summary-name {
+    color: #fde68a !important;
+  }
+
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-entry-summary-detail,
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-entry-summary-chevron {
+    color: #cbd5e1 !important;
+  }
+
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-entry-summary-total {
+    color: #f8fafc !important;
+  }
+}
+
+@media (max-width: 380px) {
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-summary-row,
+  [data-testid="timesheet-mobile-grid"] button[data-testid^="mobile-toggle-entry-"].mobile-entry-summary-row {
+    grid-template-columns: auto minmax(0, 1fr) auto 0.62rem !important;
+    gap: 0.34rem !important;
+    padding-left: 0.55rem !important;
+    padding-right: 0.55rem !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-summary-name,
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-summary-detail,
+  [data-testid="timesheet-mobile-grid"] .mobile-entry-summary-total {
+    font-size: 0.69rem !important;
+  }
+}
