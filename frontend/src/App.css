@@ -4351,3 +4351,164 @@ button[aria-label*="Collapse day"]:focus-visible {
   }
 }
 /* END TIMESHEET MANAGER / A4 PORTRAIT COMPACT PRINT V2 */
+
+/* TIMESHEET MANAGER / MOBILE COMPACT DAY ROW V1
+   Closed days are one tappable summary line. The existing full editor is only
+   rendered below the line while that day is open. Desktop remains unchanged.
+*/
+@media (max-width: 1023px) {
+  [data-testid="timesheet-mobile-grid"] [data-testid^="mobile-day-card-"].mobile-day-compact-card {
+    padding: 0 !important;
+    border: 1px solid rgba(180, 128, 38, 0.46) !important;
+    border-radius: 0.8rem !important;
+    background: #ffffff !important;
+    box-shadow: 0 3px 10px rgba(15, 23, 42, 0.07) !important;
+    overflow: hidden !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-day-summary-row,
+  [data-testid="timesheet-mobile-grid"] button[data-testid^="mobile-toggle-day-"].mobile-day-summary-row {
+    display: grid !important;
+    grid-template-columns: minmax(5.2rem, auto) minmax(0, 1fr) 0.6rem auto 0.8rem !important;
+    align-items: center !important;
+    gap: 0.45rem !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 3.35rem !important;
+    margin: 0 !important;
+    padding: 0.62rem 0.7rem !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: none !important;
+    text-align: left !important;
+    white-space: nowrap !important;
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-day-compact-card.is-expanded .mobile-day-summary-row {
+    background: #fff8e8 !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-day-summary-row > * {
+    min-width: 0 !important;
+    margin: 0 !important;
+    white-space: nowrap !important;
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+    writing-mode: horizontal-tb !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-day-summary-name {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    color: #111827 !important;
+    font-size: 0.94rem !important;
+    font-weight: 900 !important;
+    line-height: 1.1 !important;
+    letter-spacing: -0.015em !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-day-summary-detail {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    color: #64748b !important;
+    font-size: 0.76rem !important;
+    font-weight: 700 !important;
+    line-height: 1.1 !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-day-summary-status {
+    display: block !important;
+    width: 0.55rem !important;
+    min-width: 0.55rem !important;
+    height: 0.55rem !important;
+    max-height: 0.55rem !important;
+    padding: 0 !important;
+    border-width: 1px !important;
+    border-style: solid !important;
+    border-radius: 9999px !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-day-summary-total {
+    color: #334155 !important;
+    font-size: 0.8rem !important;
+    font-weight: 900 !important;
+    line-height: 1 !important;
+    text-align: right !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-day-summary-total.is-add {
+    color: #92400e !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-day-summary-chevron {
+    color: #64748b !important;
+    font-size: 1.35rem !important;
+    font-weight: 800 !important;
+    line-height: 0.8 !important;
+    text-align: right !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-day-expanded {
+    padding: 0.75rem !important;
+    border-top: 1px solid rgba(180, 128, 38, 0.28) !important;
+    background: #ffffff !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-day-actions {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-day-actions button {
+    min-height: 2.65rem !important;
+  }
+
+  .dark [data-testid="timesheet-mobile-grid"] [data-testid^="mobile-day-card-"].mobile-day-compact-card,
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-day-summary-row,
+  .dark [data-testid="timesheet-mobile-grid"] button[data-testid^="mobile-toggle-day-"].mobile-day-summary-row,
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-day-expanded {
+    background: rgba(15, 23, 42, 0.98) !important;
+    border-color: rgba(245, 190, 80, 0.4) !important;
+  }
+
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-day-compact-card.is-expanded .mobile-day-summary-row {
+    background: rgba(80, 57, 19, 0.72) !important;
+  }
+
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-day-summary-name,
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-day-summary-total {
+    color: #f8fafc !important;
+  }
+
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-day-summary-detail,
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-day-summary-chevron {
+    color: #cbd5e1 !important;
+  }
+
+  .dark [data-testid="timesheet-mobile-grid"] .mobile-day-summary-total.is-add {
+    color: #fde68a !important;
+  }
+}
+
+@media (max-width: 380px) {
+  [data-testid="timesheet-mobile-grid"] .mobile-day-summary-row,
+  [data-testid="timesheet-mobile-grid"] button[data-testid^="mobile-toggle-day-"].mobile-day-summary-row {
+    grid-template-columns: minmax(4.9rem, auto) minmax(0, 1fr) 0.55rem auto 0.65rem !important;
+    gap: 0.32rem !important;
+    padding-left: 0.58rem !important;
+    padding-right: 0.58rem !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-day-summary-name {
+    font-size: 0.86rem !important;
+  }
+
+  [data-testid="timesheet-mobile-grid"] .mobile-day-summary-detail,
+  [data-testid="timesheet-mobile-grid"] .mobile-day-summary-total {
+    font-size: 0.7rem !important;
+  }
+}
