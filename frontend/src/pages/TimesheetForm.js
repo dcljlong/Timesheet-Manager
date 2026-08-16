@@ -214,6 +214,7 @@ export default function TimesheetForm() {
     draftLoadedRef.current = false;
     hasLoadedDraftRef.current = true;
     addEntryLockRef.current = {};
+    setExpandedMobileEntries({});
     localStorage.removeItem(getDraftKey(false));
   };
   const [pmEditReason, setPmEditReason] = useState("");
@@ -224,6 +225,7 @@ export default function TimesheetForm() {
       return collapsedDays;
     }, {})
   );
+  const [expandedMobileEntries, setExpandedMobileEntries] = useState({});
 
   // Submit handler: runtime-stable weekly timesheet submission flow
   
@@ -508,6 +510,33 @@ export default function TimesheetForm() {
     return taskLabel;
   };
 
+  const getMobileEntryLineDetail = (entry = {}) => {
+    const type = normaliseEntryType(entry.type || "work");
+    const typeLabels = {
+      unpaid_day_off: "No Work",
+      public_holiday: "Public Holiday",
+      annual_leave: "Annual Leave",
+      sick: "Sick"
+    };
+
+    if (type !== "work") {
+      return typeLabels[type] || "Other";
+    }
+
+    const jobNumber = String(entry.job_number || "").trim();
+    const taskCode = String(entry.task_code || "").trim();
+    const taskOption = getTaskCodesForEntry(entry).find(
+      (option) => normaliseTaskCodeValue(option.code || option.value) === normaliseTaskCodeValue(taskCode)
+    );
+    const taskDescription = String(taskOption?.description || taskOption?.name || "").trim();
+    const taskText = [taskCode, taskDescription].filter(Boolean).join(" – ");
+
+    if (jobNumber && taskText) return `${jobNumber} · ${taskText}`;
+    if (jobNumber) return `${jobNumber} · Select task`;
+    if (taskText) return taskText;
+    return "Work · Needs info";
+  };
+
   const toggleMobileDayCollapsed = (dayIndex) => {
     setCollapsedMobileDays((current) => ({
       ...current,
@@ -630,6 +659,61 @@ const updateEntry = (dayIndex, entryIndex, field, value) => {
       saveDraftNow({ days: updated });
       return updated;
     });
+  };
+
+  // TIMESHEET MANAGER / MOBILE SINGLE OPEN TASK V1
+  // Only one task editor is open per day. Adding a task collapses the current
+  // editor and opens the newly-created row (or the existing blank last row).
+  const isBlankTimesheetEntry = (entry) => {
+    return !!entry &&
+      !isLeaveType(entry.type) &&
+      !entry.start_time &&
+      !entry.finish_time &&
+      !entry.job_number &&
+      !entry.task_code &&
+      !entry.project_manager_id &&
+      !entry.description &&
+      !entry.other &&
+      (parseFloat(entry.total_hours) || 0) <= 0;
+  };
+
+  const addMobileEntry = (dayIndex) => {
+    const entries = Array.isArray(days[dayIndex]?.entries) ? days[dayIndex].entries : [];
+    const lastEntryIndex = entries.length - 1;
+    const targetEntryIndex = lastEntryIndex >= 0 && isBlankTimesheetEntry(entries[lastEntryIndex])
+      ? lastEntryIndex
+      : entries.length;
+
+    addEntry(dayIndex);
+    setCollapsedMobileDays((current) => ({ ...current, [dayIndex]: false }));
+    setExpandedMobileEntries((current) => ({ ...current, [dayIndex]: targetEntryIndex }));
+  };
+
+  const toggleMobileEntry = (dayIndex, entryIndex) => {
+    setExpandedMobileEntries((current) => ({
+      ...current,
+      [dayIndex]: current[dayIndex] === entryIndex ? null : entryIndex
+    }));
+  };
+
+  const removeMobileEntry = (dayIndex, entryIndex) => {
+    removeEntry(dayIndex, entryIndex);
+    setExpandedMobileEntries((current) => {
+      const currentEntryIndex = current[dayIndex];
+      let nextEntryIndex = currentEntryIndex;
+
+      if (currentEntryIndex === entryIndex) nextEntryIndex = null;
+      if (typeof currentEntryIndex === "number" && currentEntryIndex > entryIndex) {
+        nextEntryIndex = currentEntryIndex - 1;
+      }
+
+      return { ...current, [dayIndex]: nextEntryIndex };
+    });
+  };
+
+  const clearMobileDay = (dayIndex) => {
+    clearDay(dayIndex);
+    setExpandedMobileEntries((current) => ({ ...current, [dayIndex]: null }));
   };
   const removeEntry = (dayIndex, entryIndex) => {
     setDays(prev => {
@@ -1406,8 +1490,7 @@ const handleSubmit = async (e) => {
                     className="mobile-day-summary-row"
                     onClick={() => {
                       if (isMobileDayCollapsed && !hasDayEntries) {
-                        addEntry(dayIndex);
-                        setCollapsedMobileDays((current) => ({ ...current, [dayIndex]: false }));
+                        addMobileEntry(dayIndex);
                         return;
                       }
                       toggleMobileDayCollapsed(dayIndex);
@@ -1438,7 +1521,7 @@ const handleSubmit = async (e) => {
                           type="button"
                           variant="outline"
                           className="w-full px-2 py-2 text-[12px] font-semibold"
-                          onClick={() => addEntry(dayIndex)}
+                          onClick={() => addMobileEntry(dayIndex)}
                           data-testid={"mobile-add-entry-" + dayIndex}
                         >
                           Add Task Entry
@@ -1447,7 +1530,7 @@ const handleSubmit = async (e) => {
                           type="button"
                           variant="ghost"
                           className="w-full px-2 py-2 text-[12px] font-semibold text-red-700"
-                          onClick={() => clearDay(dayIndex)}
+                          onClick={() => clearMobileDay(dayIndex)}
                           disabled={!day.entries || day.entries.length === 0}
                           data-testid={"mobile-clear-day-" + dayIndex}
                         >
@@ -1455,7 +1538,7 @@ const handleSubmit = async (e) => {
                         </Button>
                       </div>
 
-                      <div className="mt-3 space-y-3">
+                      <div className="mobile-entry-list mt-3 space-y-2">
                       {(!day.entries || day.entries.length === 0) && (
                         <div
                           className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-3 text-center text-sm font-semibold text-gray-600"
@@ -1471,20 +1554,30 @@ const handleSubmit = async (e) => {
                           className={
                             "mobile-entry-card mobile-entry-card-" +
                             ((entryIndex % 4) + 1) +
-                            " w-full max-w-full min-w-0 overflow-hidden rounded-lg border p-3 shadow-sm"
+                            " w-full max-w-full min-w-0 overflow-hidden rounded-lg border p-0 shadow-sm " +
+                            (expandedMobileEntries[dayIndex] === entryIndex ? "is-expanded" : "is-collapsed")
                           }
                           data-testid={"mobile-entry-" + dayIndex + "-" + entryIndex}
                         >
-                          <div className="flex items-center justify-between gap-3 mb-3">
-                            <div className="mobile-entry-line-label text-[15px] font-black uppercase tracking-wide text-amber-900">
-                              Task Entry {entryIndex + 1}
-                            </div>
-                            <div className="text-sm font-bold text-gray-900">
-                              {(parseFloat(entry.total_hours) || 0).toFixed(2)} hrs
-                            </div>
-                          </div>
+                          <button
+                            type="button"
+                            className="mobile-entry-summary-row"
+                            onClick={() => toggleMobileEntry(dayIndex, entryIndex)}
+                            aria-expanded={expandedMobileEntries[dayIndex] === entryIndex}
+                            aria-label={`Task ${entryIndex + 1}: ${getMobileEntryLineDetail(entry)}. ${(parseFloat(entry.total_hours) || 0).toFixed(2)} hours`}
+                            data-testid={"mobile-toggle-entry-" + dayIndex + "-" + entryIndex}
+                          >
+                            <span className="mobile-entry-summary-name">Task {entryIndex + 1}</span>
+                            <span className="mobile-entry-summary-detail">{getMobileEntryLineDetail(entry)}</span>
+                            <span className="mobile-entry-summary-total">{(parseFloat(entry.total_hours) || 0).toFixed(2)}h</span>
+                            <span className="mobile-entry-summary-chevron" aria-hidden="true">
+                              {expandedMobileEntries[dayIndex] === entryIndex ? "⌃" : "›"}
+                            </span>
+                          </button>
 
-                          <div className="grid grid-cols-1 gap-3">
+                          {expandedMobileEntries[dayIndex] === entryIndex && (
+                            <div className="mobile-entry-editor" data-testid={"mobile-entry-editor-" + dayIndex + "-" + entryIndex}>
+                              <div className="grid grid-cols-1 gap-3">
                             <div>
                               <Label className="text-[11px]">Type</Label>
                               <select
@@ -1674,12 +1767,14 @@ const handleSubmit = async (e) => {
                               type="button"
                               variant="ghost"
                               className="w-full px-1 py-1 text-[10px] text-red-600"
-                              onClick={() => removeEntry(dayIndex, entryIndex)}
+                              onClick={() => removeMobileEntry(dayIndex, entryIndex)}
                               data-testid={"mobile-clear-" + dayIndex + "-" + entryIndex}
                             >
                               Clear
                             </Button>
                           </div>
+                            </div>
+                          )}
                         </div>
                       ))}
                       </div>
