@@ -218,7 +218,12 @@ export default function TimesheetForm() {
   };
   const [pmEditReason, setPmEditReason] = useState("");
   const isPmEditing = isEditing && user?.role === "project_manager";
-  const [collapsedMobileDays, setCollapsedMobileDays] = useState({});
+  const [collapsedMobileDays, setCollapsedMobileDays] = useState(() =>
+    DAYS.reduce((collapsedDays, _, index) => {
+      collapsedDays[index] = true;
+      return collapsedDays;
+    }, {})
+  );
 
   // Submit handler: runtime-stable weekly timesheet submission flow
   
@@ -456,22 +461,59 @@ export default function TimesheetForm() {
     if (labels.length === 2) return labels.join(" + ");
     return "Mixed";
   };
+
+  // TIMESHEET MANAGER / MOBILE COMPACT DAY ROW V1
+  // Keeps the closed row useful without repeating the full day-card content.
+  const getMobileDayLineDetail = (day) => {
+    const entries = Array.isArray(day?.entries) ? day.entries : [];
+    const meaningfulEntries = entries.filter((entry = {}) => {
+      return [
+        entry.type,
+        entry.start_time,
+        entry.finish_time,
+        entry.job_number,
+        entry.task_code,
+        entry.project_manager_id,
+        entry.description,
+        entry.other
+      ].some((value) => value !== null && value !== undefined && String(value).trim() !== "") ||
+        (parseFloat(entry.total_hours) || 0) > 0;
+    });
+
+    if (meaningfulEntries.length === 0) {
+      return day?.day === "Saturday" || day?.day === "Sunday" ? "Optional" : "No entry";
+    }
+
+    const workEntries = meaningfulEntries.filter(
+      (entry) => normaliseEntryType(entry.type || "work") === "work"
+    );
+
+    if (workEntries.length === 0) {
+      return getMobileDayWorkTypeLabel(day);
+    }
+
+    const jobNumbersForDay = Array.from(
+      new Set(workEntries.map((entry) => String(entry.job_number || "").trim()).filter(Boolean))
+    );
+    const taskLabel = `${workEntries.length} task${workEntries.length === 1 ? "" : "s"}`;
+
+    if (jobNumbersForDay.length === 1) {
+      return `${jobNumbersForDay[0]} · ${taskLabel}`;
+    }
+
+    if (jobNumbersForDay.length > 1) {
+      return `${jobNumbersForDay.length} jobs · ${taskLabel}`;
+    }
+
+    return taskLabel;
+  };
+
   const toggleMobileDayCollapsed = (dayIndex) => {
     setCollapsedMobileDays((current) => ({
       ...current,
       [dayIndex]: !current[dayIndex]
     }));
   };
-
-  const setAllMobileDaysCollapsed = (collapsed) => {
-    const next = {};
-    DAYS.forEach((_, index) => {
-      next[index] = collapsed;
-    });
-    setCollapsedMobileDays(next);
-  };
-
-  const allMobileDaysCollapsed = days.length > 0 && days.every((_, index) => !!collapsedMobileDays[index]);
 const updateEntry = (dayIndex, entryIndex, field, value) => {
   setDays(prev => {
     const copy = [...prev];
@@ -1346,98 +1388,52 @@ const handleSubmit = async (e) => {
           </div>
 
           {/* Mobile Timesheet Day Cards */}
-          <div className="lg:hidden w-full max-w-full min-w-0 overflow-x-hidden space-y-4 mb-6" data-testid="timesheet-mobile-grid">
-            <div className="card p-3 border border-amber-200 bg-amber-50/70" data-testid="mobile-day-overview">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-sm font-black text-gray-950">Week overview</div>
-                  <div className="text-[11px] font-semibold text-gray-600">Minimise days to check completion at a glance.</div>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="shrink-0 px-2 py-2 text-[11px] font-bold"
-                  onClick={() => setAllMobileDaysCollapsed(!allMobileDaysCollapsed)}
-                  data-testid="mobile-toggle-all-days"
-                >
-                  {allMobileDaysCollapsed ? "Expand all days" : "Collapse all days"}
-                </Button>
-              </div>
-
-              {/* TIMESHEET MANAGER / MOBILE WEEK OVERVIEW READONLY COMPACT ROWS V1 */}
-              <div className="mt-3 space-y-1.5" data-testid="mobile-week-overview-readonly-list">
-                {days.map((summaryDay, summaryIndex) => {
-                  const summary = getMobileDaySummary(summaryDay, summaryIndex);
-                  const workTypeLabel = getMobileDayWorkTypeLabel(summaryDay);
-
-                  return (
-                    <div
-                      key={"mobile-summary-" + (summaryDay.day || summaryIndex)}
-                      className="grid min-w-0 grid-cols-[minmax(4.8rem,1fr)_auto_auto_auto] items-center gap-1.5 rounded-lg border border-amber-200 bg-white px-2 py-1.5 text-left shadow-sm"
-                      data-testid={"mobile-day-summary-" + summaryIndex}
-                    >
-                      <span className="min-w-0 truncate text-[12px] font-black leading-tight text-gray-950">
-                        {summaryDay.day}
-                      </span>
-                      <span className={"inline-flex shrink-0 whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[9px] font-black leading-none " + summary.badgeClass}>
-                        {summary.label}
-                      </span>
-                      <span className="inline-flex max-w-[5.8rem] shrink-0 truncate whitespace-nowrap rounded-full border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[9px] font-black leading-none text-gray-700">
-                        {workTypeLabel}
-                      </span>
-                      <span className="shrink-0 whitespace-nowrap text-right text-[11px] font-black leading-tight text-gray-800">
-                        {getDayTotal(summaryIndex).toFixed(2)} hrs
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
+          <div className="lg:hidden w-full max-w-full min-w-0 overflow-x-hidden space-y-2 mb-6" data-testid="timesheet-mobile-grid">
             {days.map((day, dayIndex) => {
               const daySummary = getMobileDaySummary(day, dayIndex);
-              const dayWorkTypeLabel = getMobileDayWorkTypeLabel(day);
+              const dayLineDetail = getMobileDayLineDetail(day);
               const isMobileDayCollapsed = !!collapsedMobileDays[dayIndex];
+              const hasDayEntries = Array.isArray(day.entries) && day.entries.length > 0;
 
               return (
-                <div key={day.day || dayIndex} className="card p-3 w-full max-w-full min-w-0 overflow-hidden" data-testid={"mobile-day-card-" + dayIndex}>
-                  <div className="mobile-day-header mb-3 space-y-3" data-testid={"mobile-day-header-" + dayIndex}>
-                    <div className="flex items-start justify-between gap-3">
-                      <button
-                        type="button"
-                        className="min-w-0 flex-1 text-left"
-                        onClick={() => toggleMobileDayCollapsed(dayIndex)}
-                        aria-expanded={!isMobileDayCollapsed}
-                        data-testid={"mobile-toggle-day-" + dayIndex}
-                      >
-                        <h2 className="mobile-day-title text-xl font-black tracking-tight text-gray-950">{day.day}</h2>
-                        <p className="text-[12px] leading-snug text-gray-500">
-                          Day total: <span className="font-semibold text-gray-800">{getDayTotal(dayIndex).toFixed(2)} hrs</span>
-                        </p>
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                          <span className={"inline-flex rounded-full border px-2 py-0.5 text-[11px] font-black " + daySummary.badgeClass}>
-                            {daySummary.label}
-                          </span>
-                          <span className="inline-flex rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] font-black text-gray-700">
-                            {dayWorkTypeLabel}
-                          </span>
-                          <span className="text-[11px] font-semibold text-gray-500">{daySummary.detail}</span>
-                        </div>
-                      </button>
+                <div
+                  key={day.day || dayIndex}
+                  className={"card mobile-day-compact-card w-full max-w-full min-w-0 overflow-hidden " + (isMobileDayCollapsed ? "is-collapsed" : "is-expanded")}
+                  data-testid={"mobile-day-card-" + dayIndex}
+                >
+                  <button
+                    type="button"
+                    className="mobile-day-summary-row"
+                    onClick={() => {
+                      if (isMobileDayCollapsed && !hasDayEntries) {
+                        addEntry(dayIndex);
+                        setCollapsedMobileDays((current) => ({ ...current, [dayIndex]: false }));
+                        return;
+                      }
+                      toggleMobileDayCollapsed(dayIndex);
+                    }}
+                    aria-expanded={!isMobileDayCollapsed}
+                    aria-label={`${day.day}: ${dayLineDetail}. ${daySummary.label}. ${hasDayEntries ? `${getDayTotal(dayIndex).toFixed(2)} hours` : "Add entry"}`}
+                    data-testid={"mobile-toggle-day-" + dayIndex}
+                  >
+                    <span className="mobile-day-summary-name">{day.day}</span>
+                    <span className="mobile-day-summary-detail">{dayLineDetail}</span>
+                    <span
+                      className={"mobile-day-summary-status " + daySummary.badgeClass}
+                      title={daySummary.label}
+                      aria-hidden="true"
+                    />
+                    <span className={"mobile-day-summary-total " + (!hasDayEntries ? "is-add" : "")}>
+                      {hasDayEntries ? `${getDayTotal(dayIndex).toFixed(2)}h` : "+ Add"}
+                    </span>
+                    <span className="mobile-day-summary-chevron" aria-hidden="true">
+                      {isMobileDayCollapsed ? "›" : "⌃"}
+                    </span>
+                  </button>
 
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="shrink-0 px-2 py-2 text-[11px] font-bold"
-                        onClick={() => toggleMobileDayCollapsed(dayIndex)}
-                        data-testid={"mobile-collapse-day-" + dayIndex}
-                      >
-                        {isMobileDayCollapsed ? "Expand day" : "Collapse day"}
-                      </Button>
-                    </div>
-
-                    {!isMobileDayCollapsed && (
-                      <div className="grid grid-cols-2 gap-2">
+                  {!isMobileDayCollapsed && (
+                    <div className="mobile-day-expanded" data-testid={"mobile-day-expanded-" + dayIndex}>
+                      <div className="mobile-day-actions grid grid-cols-2 gap-2">
                         <Button
                           type="button"
                           variant="outline"
@@ -1458,24 +1454,14 @@ const handleSubmit = async (e) => {
                           Clear Day
                         </Button>
                       </div>
-                    )}
-                  </div>
 
-                  {isMobileDayCollapsed ? (
-                    <div
-                      className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-3 text-sm font-semibold text-gray-700"
-                      data-testid={"mobile-collapsed-day-" + dayIndex}
-                    >
-                      {daySummary.label} - {dayWorkTypeLabel} - {getDayTotal(dayIndex).toFixed(2)} hrs. Tap Expand day to edit this day.
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
+                      <div className="mt-3 space-y-3">
                       {(!day.entries || day.entries.length === 0) && (
                         <div
-                          className="rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 p-4 text-center text-sm font-semibold text-gray-600"
+                          className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-3 text-center text-sm font-semibold text-gray-600"
                           data-testid={"mobile-empty-day-" + dayIndex}
                         >
-                          No entries for this day. Leave blank, or tap Add Task Entry to record work or leave.
+                          No entry yet. Tap Add Task Entry to start.
                         </div>
                       )}
 
@@ -1696,6 +1682,7 @@ const handleSubmit = async (e) => {
                           </div>
                         </div>
                       ))}
+                      </div>
                     </div>
                   )}
                 </div>
