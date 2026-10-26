@@ -27,6 +27,14 @@ def setup():
         for job, desc in [("4177", "Craigs Fitout"), ("4009", "2 Devonport")]:
             r = client.post("/api/job-numbers", headers=admin, json={"job_number": job, "description": desc})
             assert r.status_code in (200, 201), r.text
+        r = client.post("/api/project-managers", headers=admin, json={"initials": "JF", "name": "Jayden Foreman", "email": PM[0]})
+        assert r.status_code in (200, 201), r.text
+        ids["_pm"] = r.json()["id"]
+        codes = client.get("/api/task-codes", headers=admin).json()
+        if not codes:
+            client.post("/api/task-codes", headers=admin, json={"code": "FRM", "description": "Framing"})
+            codes = client.get("/api/task-codes", headers=admin).json()
+        ids["_task"] = codes[0]["code"]
         yield {"client": client, "admin": admin, "ids": ids}
 
 
@@ -34,6 +42,8 @@ def day_body(ids):
     return {
         "work_date": "2026-10-26",
         "job_number": "4177",
+        "task_code": ids["_task"],
+        "project_manager_id": ids["_pm"],
         "crew": [
             {"user_id": ids["Eddie Employee"], "name": "Eddie Employee", "start_time": "07:00", "finish_time": "15:30", "lunch_minutes": 30},
             {"user_id": ids["Sam Hammer"], "name": "Sam Hammer", "start_time": "07:00", "finish_time": "12:00", "lunch_minutes": 0,

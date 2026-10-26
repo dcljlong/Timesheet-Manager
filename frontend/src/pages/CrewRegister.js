@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-import { ChevronLeft, ChevronRight, ClipboardCopy, Download, FileText, Plus, Save, Trash2, Users } from "lucide-react";
+import { ChevronLeft, ChevronRight, ClipboardCopy, Download, FileText, Plus, Save, Send, Trash2, Users } from "lucide-react";
 import Layout from "../components/Layout";
 
 // TIMESHEET MANAGER / CREW REGISTER V1
@@ -44,6 +44,15 @@ const calcHours = (start, finish, lunch) => {
   return Math.max(0, Math.round(((f - s - (Number(lunch) || 0)) / 60) * 100) / 100);
 };
 
+const STATUS_LABEL = { draft: "Draft", submitted: "Waiting for PM", pm_approved: "Waiting for admin", approved: "Approved", rejected: "Rejected" };
+const STATUS_STYLE = {
+  draft: "border-gray-300 text-gray-600 bg-gray-50",
+  submitted: "border-amber-300 text-amber-800 bg-amber-50",
+  pm_approved: "border-blue-300 text-blue-800 bg-blue-50",
+  approved: "border-green-300 text-green-800 bg-green-50",
+  rejected: "border-red-300 text-red-800 bg-red-50",
+};
+
 const DEFAULTS_KEY = "tm-crew-register-defaults";
 const loadDefaults = () => {
   try {
@@ -52,7 +61,7 @@ const loadDefaults = () => {
   } catch (e) {
     /* storage unavailable */
   }
-  return { start: "07:00", finish: "15:30", lunch: 30, job: "" };
+  return { start: "07:00", finish: "15:30", lunch: 30, job: "", task: "", pm: "" };
 };
 
 export default function CrewRegister() {
@@ -60,7 +69,13 @@ export default function CrewRegister() {
   const [defaults, setDefaults] = useState(loadDefaults);
   const [workDate, setWorkDate] = useState(todayIso);
   const [jobNumber, setJobNumber] = useState(defaults.job || "");
-  const [taskCode, setTaskCode] = useState("");
+  const [taskCode, setTaskCode] = useState(defaults.task || "");
+  const [pmId, setPmId] = useState(defaults.pm || "");
+  const [pms, setPms] = useState([]);
+  const [week, setWeek] = useState(null);
+  const [syncNotes, setSyncNotes] = useState([]);
+  const [confirmSend, setConfirmSend] = useState(false);
+  const [sending, setSending] = useState(false);
   const [jobs, setJobs] = useState([]);
   const [taskCodes, setTaskCodes] = useState([]);
   const [staff, setStaff] = useState([]);
@@ -81,12 +96,20 @@ export default function CrewRegister() {
       axios.get(`${API}/job-numbers`, opts),
       axios.get(`${API}/task-codes`, opts),
       axios.get(`${API}/crew-register/staff`, opts),
+      axios.get(`${API}/project-managers`, opts),
     ])
-      .then(([j, t, s]) => {
+      .then(([j, t, s, p]) => {
         const activeJobs = (j.data || []).filter((x) => x.active !== false);
         setJobs(activeJobs);
         setTaskCodes(t.data || []);
         setStaff(s.data || []);
+        const pmList = p.data || [];
+        setPms(pmList);
+        if (!pmId) {
+          const mine = pmList.find((x) => x.email && user?.email && x.email.toLowerCase() === user.email.toLowerCase());
+          if (mine) setPmId(mine.id);
+          else if (pmList.length === 1) setPmId(pmList[0].id);
+        }
         if (!jobNumber && activeJobs.length) setJobNumber(activeJobs[0].job_number);
       })
       .catch((err) => toast.error(formatApiError(err)));
@@ -95,11 +118,22 @@ export default function CrewRegister() {
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(DEFAULTS_KEY, JSON.stringify({ ...defaults, job: jobNumber }));
+      window.localStorage.setItem(DEFAULTS_KEY, JSON.stringify({ ...defaults, job: jobNumber, task: taskCode, pm: pmId }));
     } catch (e) {
       /* storage unavailable */
     }
-  }, [defaults, jobNumber]);
+  }, [defaults, jobNumber, taskCode, pmId]);
+
+  const loadWeek = (dateIso) =>
+    axios
+      .get(`${API}/crew-register/week`, { params: { work_date: dateIso }, withCredentials: true })
+      .then(({ data }) => setWeek(data))
+      .catch(() => setWeek(null));
+
+  useEffect(() => {
+    setConfirmSend(false);
+    loadWeek(workDate);
+  }, [workDate]);
 
   // Load any saved register for this job and date
   useEffect(() => {
@@ -127,7 +161,8 @@ export default function CrewRegister() {
           setCrew(loaded);
           setSubbies((day.subbies || []).map((s) => ({ company: s.company, count: s.count, note: s.note || "" })));
           setNotes(day.notes || "");
-          setTaskCode(day.task_code || "");
+          if (day.task_code) setTaskCode(day.task_code);
+          if (day.project_manager_id) setPmId(day.project_manager_id);
           setSavedId(day.id);
           setSavedDay(day);
         } else {
@@ -248,6 +283,7 @@ export default function CrewRegister() {
           work_date: workDate,
           job_number: jobNumber,
           task_code: taskCode || null,
+          project_manager_id: pmId || null,
           crew: crewEntries.map(([, c]) => ({
             user_id: c.user_id,
             name: c.name,
@@ -267,11 +303,34 @@ export default function CrewRegister() {
       setSavedId(data.id);
       setSavedDay(data);
       setDirty(false);
-      toast.success(`Saved – ${data.total_on_site} on site`);
+      const sync = data.timesheet_sync || [];
+      const fed = sync.filter((x) => ["created", "updated"].includes(x.result)).length;
+      setSyncNotes(sync.filter((x) => x.result === "skipped"));
+      toast.success(`Saved – ${data.total_on_site} on site${fed ? ` · ${fed} timesheet${fed === 1 ? "" : "s"} updated` : ""}`);
+      loadWeek(workDate);
     } catch (err) {
       toast.error(formatApiError(err));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSendWeek = async () => {
+    if (!week) return;
+    if (!confirmSend) {
+      setConfirmSend(true);
+      return;
+    }
+    setSending(true);
+    try {
+      const { data } = await axios.post(`${API}/crew-register/week/submit`, { week_ending: week.week_ending }, { withCredentials: true });
+      toast.success(`${data.submitted} timesheet${data.submitted === 1 ? "" : "s"} sent for approval`);
+      setConfirmSend(false);
+      loadWeek(workDate);
+    } catch (err) {
+      toast.error(formatApiError(err));
+    } finally {
+      setSending(false);
     }
   };
 
@@ -361,7 +420,7 @@ export default function CrewRegister() {
               </select>
             </div>
             <div>
-              <Label htmlFor="crew-task">Task code (optional)</Label>
+              <Label htmlFor="crew-task">Task code</Label>
               <select
                 id="crew-task"
                 value={taskCode}
@@ -372,10 +431,31 @@ export default function CrewRegister() {
                 className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white"
                 data-testid="crew-task-select"
               >
-                <option value="">None</option>
+                <option value="">Pick a task code</option>
                 {taskCodes.map((t) => (
                   <option key={t.id} value={t.code}>
                     {t.code} – {t.description}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <Label htmlFor="crew-pm">Project manager (approves the timesheets)</Label>
+              <select
+                id="crew-pm"
+                value={pmId}
+                onChange={(e) => {
+                  setPmId(e.target.value);
+                  touch();
+                }}
+                className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white"
+                data-testid="crew-pm-select"
+              >
+                <option value="">Pick a project manager</option>
+                {pms.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                    {p.initials ? ` (${p.initials})` : ""}
                   </option>
                 ))}
               </select>
@@ -492,6 +572,19 @@ export default function CrewRegister() {
           </div>
         </div>
 
+        {syncNotes.length > 0 && (
+          <div className="card p-4 border border-amber-300 bg-amber-50 text-sm" data-testid="crew-sync-notes">
+            <p className="font-semibold text-amber-900 mb-1">Not added to a timesheet</p>
+            <ul className="space-y-0.5 text-amber-900">
+              {syncNotes.map((n) => (
+                <li key={n.name}>
+                  {n.name} – {n.reason}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {/* Subbies */}
         <div className="card p-4 space-y-3" data-testid="crew-subbies">
           <div className="flex items-baseline justify-between">
@@ -543,6 +636,44 @@ export default function CrewRegister() {
             placeholder="e.g. Scissor lift on hire, rain stopped work at 2pm"
             className="mt-1 w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
           />
+        </div>
+
+
+        {/* Week timesheets */}
+        <div className="card p-4 space-y-3" data-testid="crew-week">
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="font-semibold">This week's timesheets</h2>
+            {week && <span className="text-xs text-gray-500">Week ending {dateLabel(week.week_ending)}</span>}
+          </div>
+          {!week || week.timesheets.length === 0 ? (
+            <p className="text-sm text-gray-500">Saved days fill in each person's timesheet for the week. Nothing yet.</p>
+          ) : (
+            <>
+              <div className="divide-y divide-gray-100">
+                {week.timesheets.map((t) => (
+                  <div key={t.id} className="flex items-center gap-3 py-2 text-sm">
+                    <span className="flex-1">{t.employee_name}</span>
+                    <span className="text-gray-500 tabular-nums">
+                      {t.days_worked} day{t.days_worked === 1 ? "" : "s"} · {fmtHours(t.total_hours)}h
+                    </span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full border ${STATUS_STYLE[t.status] || STATUS_STYLE.draft}`}>
+                      {STATUS_LABEL[t.status] || t.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {week.timesheets.some((t) => t.status === "draft") && (
+                <Button onClick={handleSendWeek} disabled={sending} className="w-full bg-gray-900 hover:bg-gray-800" data-testid="crew-send-week">
+                  <Send className="w-4 h-4 mr-2" />
+                  {sending
+                    ? "Sending..."
+                    : confirmSend
+                    ? `Tap again to send ${week.timesheets.filter((t) => t.status === "draft").length} for approval`
+                    : "Send week for approval"}
+                </Button>
+              )}
+            </>
+          )}
         </div>
 
         {/* Message */}
