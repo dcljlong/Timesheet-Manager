@@ -30,6 +30,7 @@ import ManageJobNumbers from "./pages/ManageJobNumbers";
 import ManagePMs from "./pages/ManagePMs";
 import ManageUsers from "./pages/ManageUsers";
 import ManageAuditLog from "./pages/ManageAuditLog";
+import CrewRegister from "./pages/CrewRegister";
 
 const ThemeContext = createContext(null);
 
@@ -380,6 +381,12 @@ function App() {
           <Route path="/settings" element={
             <ProtectedRoute allowedRoles={["employee", "project_manager", "admin"]}>
               <SettingsPage />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/crew" element={
+            <ProtectedRoute allowedRoles={["project_manager", "admin"]}>
+              <CrewRegister />
             </ProtectedRoute>
           } />
 

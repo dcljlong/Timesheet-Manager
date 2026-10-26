@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth, useTheme, API } from "../App";
-import { LogOut, Settings, FileText, Users, ClipboardList, Home, UserCog, Layers, Sun, Moon, Wrench, Briefcase, MessageSquare, ShieldCheck } from "lucide-react";
+import { LogOut, Settings, FileText, Users, ClipboardList, Home, UserCog, Layers, Sun, Moon, Wrench, Briefcase, MessageSquare, ShieldCheck, HardHat } from "lucide-react";
 import { Button } from "../components/ui/button";
 import timesheetLogo from "../assets/timesheet-manager-logo.png";
 
@@ -43,6 +43,7 @@ export default function Layout({ children }) {
     project_manager: [
       { path: "/employee", label: "My Timesheets", icon: FileText },
       { path: "/pm", label: "Approvals", icon: ClipboardList },
+      { path: "/crew", label: "Crew Register", icon: HardHat },
       { path: "/timesheet/new", label: "New Timesheet", icon: FileText },
       { path: "/settings", label: "Settings", icon: Settings },
     ],
@@ -50,6 +51,7 @@ export default function Layout({ children }) {
       { path: "/admin", label: "Dashboard", icon: Home },
       { path: "/employee", label: "My Timesheets", icon: FileText },
       { path: "/pm", label: "PM Approvals", icon: ClipboardList },
+      { path: "/crew", label: "Crew Register", icon: HardHat },
       { path: "/admin/users", label: "Users", icon: Users },
       { path: "/admin/audit-log", label: "Audit Log", icon: ShieldCheck },
       { path: "/admin/task-codes", label: "Task Codes", icon: Layers },
