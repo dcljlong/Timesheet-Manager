@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import { API, formatApiError, useAuth } from "../App";
 import axios from "axios";
 import { toast } from "sonner";
@@ -579,7 +578,7 @@ export default function CrewRegister() {
                 <ClipboardCopy className="w-4 h-4 mr-2" />
                 Copy text
               </Button>
-              <Button variant="outline" onClick={() => window.print()} className="w-full" data-testid="crew-pdf-button">
+              <Button variant="outline" onClick={() => printCrewDay(savedDay)} className="w-full" data-testid="crew-pdf-button">
                 <FileText className="w-4 h-4 mr-2" />
                 Save PDF
               </Button>
@@ -625,6 +624,77 @@ export default function CrewRegister() {
 }
 
 
+// A full A4 page, printed from its own blank frame so none of the app's
+// screen or print styles can shrink it or move it down the page.
+const PRINT_CSS = `
+  @page { size: A4 portrait; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  .crew-print-doc {
+    display: flex !important; flex-direction: column;
+    width: 210mm; min-height: 296mm; padding: 16mm 16mm 12mm;
+    color: #111827; font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif; font-size: 11.5pt; line-height: 1.4;
+    print-color-adjust: exact; -webkit-print-color-adjust: exact;
+  }
+  .cpd-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 8mm; border-bottom: 3pt solid #111827; padding-bottom: 5mm; margin-bottom: 7mm; }
+  .cpd-eyebrow { font-size: 9pt; letter-spacing: 0.16em; text-transform: uppercase; color: #6b7280; margin: 0 0 2mm; }
+  .cpd-title { font-size: 24pt; font-weight: 700; margin: 0; line-height: 1.1; }
+  .cpd-job { font-size: 14pt; font-weight: 600; margin: 2mm 0 0; }
+  .cpd-meta { text-align: right; font-size: 10pt; color: #374151; }
+  .cpd-meta strong { display: block; font-size: 12.5pt; color: #111827; }
+  .cpd-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4mm; margin-bottom: 8mm; }
+  .cpd-stat { border: 1pt solid #d1d5db; border-radius: 2.5mm; padding: 4mm 4.5mm; }
+  .cpd-stat span { display: block; font-size: 8.5pt; letter-spacing: 0.12em; text-transform: uppercase; color: #6b7280; margin-bottom: 1mm; }
+  .cpd-stat b { font-size: 22pt; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .cpd-stat.cpd-main { background: #111827; border-color: #111827; color: #fff; }
+  .cpd-stat.cpd-main span { color: #d1d5db; }
+  .cpd-h2 { font-size: 11pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin: 8mm 0 2.5mm; }
+  .cpd-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .cpd-table th { text-align: left; font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.08em; color: #4b5563; border-bottom: 1.25pt solid #111827; padding: 2mm 2.5mm; }
+  .cpd-table td { border-bottom: 0.6pt solid #e5e7eb; padding: 2.6mm 2.5mm; vertical-align: top; }
+  .cpd-table tr { break-inside: avoid; }
+  .cpd-table .num { text-align: right; }
+  .cpd-table tfoot td { border-top: 1.25pt solid #111827; border-bottom: 0; font-weight: 700; }
+  .cpd-notes { border: 1pt solid #d1d5db; border-radius: 2.5mm; padding: 4mm 4.5mm; white-space: pre-wrap; }
+  .cpd-bottom { margin-top: auto; padding-top: 14mm; }
+  .cpd-sign { display: grid; grid-template-columns: 2fr 1fr; gap: 10mm; font-size: 10pt; color: #374151; }
+  .cpd-sign div { border-top: 1pt solid #6b7280; padding-top: 2mm; }
+  .cpd-foot { margin-top: 8mm; font-size: 8pt; color: #9ca3af; display: flex; justify-content: space-between; }
+`;
+
+const crewPrintHtml = (docHtml, title) =>
+  `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>${PRINT_CSS}</style></head><body>${docHtml}</body></html>`;
+
+function printCrewDay(day) {
+  const el = document.querySelector('[data-testid="crew-print-document"]');
+  if (!el || !day) return;
+  const title = `Crew register ${day.job_number} ${day.work_date}`.replace(/[<>&"]/g, "");
+  const frame = document.createElement("iframe");
+  frame.setAttribute("aria-hidden", "true");
+  frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
+  document.body.appendChild(frame);
+  const fdoc = frame.contentWindow.document;
+  fdoc.open();
+  fdoc.write(crewPrintHtml(el.outerHTML.replace(/ style="display: ?none;?"/, ""), title));
+  fdoc.close();
+  const pageTitle = document.title;
+  document.title = title; // default PDF file name in most browsers
+  const cleanup = () => {
+    document.title = pageTitle;
+    setTimeout(() => frame.remove(), 500);
+  };
+  setTimeout(() => {
+    try {
+      frame.contentWindow.focus();
+      frame.contentWindow.addEventListener("afterprint", cleanup, { once: true });
+      frame.contentWindow.print();
+    } catch (e) {
+      window.print();
+    }
+    setTimeout(cleanup, 60000);
+  }, 150);
+}
+
 const fmtTime = (t) => {
   if (!t) return "";
   const [h, m] = t.split(":").map(Number);
@@ -648,50 +718,8 @@ function CrewPrintDocument({ day, level, jobDescription, taskLabel, preparedBy }
   });
   const printedAt = new Date().toLocaleString("en-NZ", { dateStyle: "medium", timeStyle: "short" });
 
-  // Rendered straight into <body> so the app's wide screen layout can't shrink or
-  // push it down the page when printing.
-  return createPortal(
-    <div className="crew-print-doc" data-testid="crew-print-document" aria-hidden="true">
-      <style>{`
-        .crew-print-doc { display: none; }
-        @media print {
-          /* Margin 0 drops the browser's own date / URL header and footer. */
-          @page { size: A4 portrait; margin: 0; }
-          html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; width: 210mm !important; height: auto !important; min-height: 0 !important; overflow: visible !important; }
-          body > *:not(.crew-print-doc) { display: none !important; }
-          .crew-print-doc {
-            display: block !important; position: static !important; box-sizing: border-box;
-            width: 210mm; padding: 14mm 14mm 12mm;
-            color: #111827; font-family: "IBM Plex Sans", "Segoe UI", Arial, sans-serif; font-size: 10.5pt; line-height: 1.35;
-            print-color-adjust: exact; -webkit-print-color-adjust: exact;
-          }
-          .crew-print-doc * { visibility: visible !important; }
-          .cpd-head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2.5pt solid #111827; padding-bottom: 3mm; margin-bottom: 4mm; }
-          .cpd-eyebrow { font-size: 8pt; letter-spacing: 0.14em; text-transform: uppercase; color: #6b7280; margin: 0 0 1mm; }
-          .cpd-title { font-size: 18pt; font-weight: 700; margin: 0; }
-          .cpd-job { font-size: 12pt; font-weight: 600; margin: 1mm 0 0; }
-          .cpd-meta { text-align: right; font-size: 9pt; color: #374151; }
-          .cpd-meta strong { display: block; font-size: 11pt; color: #111827; }
-          .cpd-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; margin-bottom: 5mm; }
-          .cpd-stat { border: 0.75pt solid #d1d5db; border-radius: 2mm; padding: 2.5mm 3mm; }
-          .cpd-stat span { display: block; font-size: 7.5pt; letter-spacing: 0.1em; text-transform: uppercase; color: #6b7280; }
-          .cpd-stat b { font-size: 16pt; font-variant-numeric: tabular-nums; }
-          .cpd-stat.cpd-main { background: #111827; border-color: #111827; color: #fff; }
-          .cpd-stat.cpd-main span { color: #d1d5db; }
-          .cpd-h2 { font-size: 10pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin: 5mm 0 1.5mm; }
-          .cpd-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-          .cpd-table th { text-align: left; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.06em; color: #4b5563; border-bottom: 1pt solid #111827; padding: 1.5mm 2mm; }
-          .cpd-table td { border-bottom: 0.5pt solid #e5e7eb; padding: 1.8mm 2mm; vertical-align: top; }
-          .cpd-table tr { break-inside: avoid; }
-          .cpd-table .num { text-align: right; }
-          .cpd-table tfoot td { border-top: 1pt solid #111827; border-bottom: 0; font-weight: 700; }
-          .cpd-notes { border: 0.75pt solid #d1d5db; border-radius: 2mm; padding: 2.5mm 3mm; white-space: pre-wrap; }
-          .cpd-sign { display: grid; grid-template-columns: 2fr 1fr; gap: 8mm; margin-top: 12mm; font-size: 9pt; color: #374151; }
-          .cpd-sign div { border-top: 0.75pt solid #6b7280; padding-top: 1.5mm; }
-          .cpd-foot { margin-top: 6mm; font-size: 7.5pt; color: #9ca3af; display: flex; justify-content: space-between; }
-        }
-      `}</style>
-
+  return (
+    <div className="crew-print-doc" data-testid="crew-print-document" aria-hidden="true" style={{ display: "none" }}>
       <div className="cpd-head">
         <div>
           <p className="cpd-eyebrow">Daily crew register</p>
@@ -812,6 +840,7 @@ function CrewPrintDocument({ day, level, jobDescription, taskLabel, preparedBy }
         </>
       )}
 
+      <div className="cpd-bottom">
       <div className="cpd-sign">
         <div>Checked by</div>
         <div>Date</div>
@@ -821,7 +850,7 @@ function CrewPrintDocument({ day, level, jobDescription, taskLabel, preparedBy }
         <span>Timesheet Manager – Crew Register</span>
         <span>Printed {printedAt}</span>
       </div>
-    </div>,
-    document.body
+      </div>
+    </div>
   );
 }
