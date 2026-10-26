@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { API, formatApiError } from "../App";
+import { API, formatApiError, useAuth } from "../App";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-import { ChevronLeft, ChevronRight, ClipboardCopy, Download, Plus, Save, Trash2, Users } from "lucide-react";
+import { ChevronLeft, ChevronRight, ClipboardCopy, Download, FileText, Plus, Save, Trash2, Users } from "lucide-react";
 import Layout from "../components/Layout";
 
 // TIMESHEET MANAGER / CREW REGISTER V1
 // Foreman/PM records who is on site for a job each day, with hours for Westaco
-// crew and headcount for subbies, then copies a basic or full message for the office.
+// crew and headcount for subbies, then exports a basic or full summary (copy text, PDF, CSV).
 
 const pad = (n) => String(n).padStart(2, "0");
 const toIsoDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -56,6 +56,7 @@ const loadDefaults = () => {
 };
 
 export default function CrewRegister() {
+  const { user } = useAuth();
   const [defaults, setDefaults] = useState(loadDefaults);
   const [workDate, setWorkDate] = useState(todayIso);
   const [jobNumber, setJobNumber] = useState(defaults.job || "");
@@ -68,6 +69,7 @@ export default function CrewRegister() {
   const [subbies, setSubbies] = useState([]);
   const [notes, setNotes] = useState("");
   const [savedId, setSavedId] = useState(null);
+  const [savedDay, setSavedDay] = useState(null);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [level, setLevel] = useState("basic");
@@ -127,11 +129,13 @@ export default function CrewRegister() {
           setNotes(day.notes || "");
           setTaskCode(day.task_code || "");
           setSavedId(day.id);
+          setSavedDay(day);
         } else {
           setCrew({});
           setSubbies([]);
           setNotes("");
           setSavedId(null);
+          setSavedDay(null);
         }
         setDirty(false);
       })
@@ -261,6 +265,7 @@ export default function CrewRegister() {
         { withCredentials: true }
       );
       setSavedId(data.id);
+      setSavedDay(data);
       setDirty(false);
       toast.success(`Saved – ${data.total_on_site} on site`);
     } catch (err) {
@@ -274,7 +279,7 @@ export default function CrewRegister() {
     if (!message) return;
     try {
       await navigator.clipboard.writeText(message);
-      toast.success("Copied – paste it into your text or email to Dan");
+      toast.success("Copied – paste it wherever you need it");
     } catch (e) {
       const el = document.getElementById("crew-message-text");
       if (el) {
@@ -316,7 +321,7 @@ export default function CrewRegister() {
             <Users className="w-6 h-6" />
             Crew Register
           </h1>
-          <p className="text-gray-500 text-sm">Who's on site today, their hours, and a message for the office.</p>
+          <p className="text-gray-500 text-sm">Who's on site, their hours, and a daily summary to share.</p>
         </div>
 
         {/* Day and job */}
@@ -543,8 +548,8 @@ export default function CrewRegister() {
         {/* Message */}
         <div className="card p-4 space-y-3" data-testid="crew-message">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="font-semibold">Message for Dan</h2>
-            <div className="inline-flex rounded-md border border-gray-300 overflow-hidden" role="group" aria-label="Message detail">
+            <h2 className="font-semibold">Export</h2>
+            <div className="inline-flex rounded-md border border-gray-300 overflow-hidden" role="group" aria-label="Export detail">
               {["basic", "full"].map((l) => (
                 <button
                   key={l}
@@ -571,11 +576,15 @@ export default function CrewRegister() {
               />
               <Button onClick={handleCopy} className="w-full bg-gray-900 hover:bg-gray-800" data-testid="crew-copy-button">
                 <ClipboardCopy className="w-4 h-4 mr-2" />
-                Copy message
+                Copy text
+              </Button>
+              <Button variant="outline" onClick={() => window.print()} className="w-full" data-testid="crew-pdf-button">
+                <FileText className="w-4 h-4 mr-2" />
+                Save PDF
               </Button>
             </>
           ) : (
-            <p className="text-sm text-gray-500">{dirty ? "Save the register to update the message." : "Save the register to make the message."}</p>
+            <p className="text-sm text-gray-500">{dirty ? "Save the register to update the export." : "Save the register to export it."}</p>
           )}
           <Button variant="outline" onClick={handleExportWeek} className="w-full" data-testid="crew-export-week">
             <Download className="w-4 h-4 mr-2" />
@@ -583,6 +592,17 @@ export default function CrewRegister() {
           </Button>
         </div>
       </div>
+
+      {/* Print / Save PDF document (hidden on screen) */}
+      {savedDay && !dirty && (
+        <CrewPrintDocument
+          day={savedDay}
+          level={level}
+          jobDescription={(jobs.find((j) => j.job_number === savedDay.job_number) || {}).description || ""}
+          taskLabel={(taskCodes.find((t) => t.code === savedDay.task_code) || {}).description || ""}
+          preparedBy={savedDay.updated_by_name || user?.name || ""}
+        />
+      )}
 
       {/* Save bar */}
       <div className="fixed bottom-0 inset-x-0 z-40 bg-white/95 border-t border-gray-200 px-4 py-3 backdrop-blur" style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))" }}>
@@ -600,5 +620,202 @@ export default function CrewRegister() {
         </div>
       </div>
     </Layout>
+  );
+}
+
+
+const fmtTime = (t) => {
+  if (!t) return "";
+  const [h, m] = t.split(":").map(Number);
+  if (!Number.isFinite(h)) return t;
+  const suffix = h >= 12 ? "pm" : "am";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2, "0")}${suffix}`;
+};
+const fmtHours = (n) => (Math.round((Number(n) || 0) * 100) / 100).toString();
+const lunchLabel = (m) => (Number(m) ? (Number(m) === 60 ? "1 hr" : `${m} min`) : "–");
+
+function CrewPrintDocument({ day, level, jobDescription, taskLabel, preparedBy }) {
+  const crew = [...(day.crew || [])].sort((a, b) => a.name.localeCompare(b.name));
+  const subbies = day.subbies || [];
+  const full = level === "full";
+  const longDate = new Date(`${day.work_date}T12:00:00`).toLocaleDateString("en-NZ", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  const printedAt = new Date().toLocaleString("en-NZ", { dateStyle: "medium", timeStyle: "short" });
+
+  return (
+    <div className="crew-print-doc" data-testid="crew-print-document" aria-hidden="true">
+      <style>{`
+        .crew-print-doc { display: none; }
+        @media print {
+          @page { size: A4 portrait; margin: 12mm; }
+          html, body, #root { background: #fff !important; margin: 0 !important; padding: 0 !important; }
+          body * { visibility: hidden !important; }
+          .crew-print-doc, .crew-print-doc * { visibility: visible !important; }
+          .crew-print-doc {
+            display: block !important; position: absolute; left: 0; top: 0; width: 100%;
+            color: #111827; font-family: "IBM Plex Sans", "Segoe UI", Arial, sans-serif; font-size: 10pt; line-height: 1.35;
+            print-color-adjust: exact; -webkit-print-color-adjust: exact;
+          }
+          .cpd-head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2.5pt solid #111827; padding-bottom: 3mm; margin-bottom: 4mm; }
+          .cpd-eyebrow { font-size: 8pt; letter-spacing: 0.14em; text-transform: uppercase; color: #6b7280; margin: 0 0 1mm; }
+          .cpd-title { font-size: 18pt; font-weight: 700; margin: 0; }
+          .cpd-job { font-size: 12pt; font-weight: 600; margin: 1mm 0 0; }
+          .cpd-meta { text-align: right; font-size: 9pt; color: #374151; }
+          .cpd-meta strong { display: block; font-size: 11pt; color: #111827; }
+          .cpd-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; margin-bottom: 5mm; }
+          .cpd-stat { border: 0.75pt solid #d1d5db; border-radius: 2mm; padding: 2.5mm 3mm; }
+          .cpd-stat span { display: block; font-size: 7.5pt; letter-spacing: 0.1em; text-transform: uppercase; color: #6b7280; }
+          .cpd-stat b { font-size: 16pt; font-variant-numeric: tabular-nums; }
+          .cpd-stat.cpd-main { background: #111827; border-color: #111827; color: #fff; }
+          .cpd-stat.cpd-main span { color: #d1d5db; }
+          .cpd-h2 { font-size: 10pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin: 5mm 0 1.5mm; }
+          .cpd-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+          .cpd-table th { text-align: left; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.06em; color: #4b5563; border-bottom: 1pt solid #111827; padding: 1.5mm 2mm; }
+          .cpd-table td { border-bottom: 0.5pt solid #e5e7eb; padding: 1.8mm 2mm; vertical-align: top; }
+          .cpd-table tr { break-inside: avoid; }
+          .cpd-table .num { text-align: right; }
+          .cpd-table tfoot td { border-top: 1pt solid #111827; border-bottom: 0; font-weight: 700; }
+          .cpd-notes { border: 0.75pt solid #d1d5db; border-radius: 2mm; padding: 2.5mm 3mm; white-space: pre-wrap; }
+          .cpd-sign { display: grid; grid-template-columns: 2fr 1fr; gap: 8mm; margin-top: 12mm; font-size: 9pt; color: #374151; }
+          .cpd-sign div { border-top: 0.75pt solid #6b7280; padding-top: 1.5mm; }
+          .cpd-foot { margin-top: 6mm; font-size: 7.5pt; color: #9ca3af; display: flex; justify-content: space-between; }
+        }
+      `}</style>
+
+      <div className="cpd-head">
+        <div>
+          <p className="cpd-eyebrow">Daily crew register</p>
+          <h1 className="cpd-title">{longDate}</h1>
+          <p className="cpd-job">
+            {day.job_number}
+            {jobDescription ? ` – ${jobDescription}` : ""}
+          </p>
+        </div>
+        <div className="cpd-meta">
+          {day.task_code && (
+            <div>
+              Task: {day.task_code}
+              {taskLabel ? ` ${taskLabel}` : ""}
+            </div>
+          )}
+          {preparedBy && (
+            <div>
+              Recorded by <strong>{preparedBy}</strong>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="cpd-stats">
+        <div className="cpd-stat cpd-main">
+          <span>On site</span>
+          <b>{day.total_on_site}</b>
+        </div>
+        <div className="cpd-stat">
+          <span>Westaco</span>
+          <b>{day.westaco_count}</b>
+        </div>
+        <div className="cpd-stat">
+          <span>Subbies</span>
+          <b>{day.subbie_count}</b>
+        </div>
+        <div className="cpd-stat">
+          <span>Crew hours</span>
+          <b>{fmtHours(day.total_hours)}</b>
+        </div>
+      </div>
+
+      <h2 className="cpd-h2">Westaco crew</h2>
+      {crew.length ? (
+        <table className="cpd-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              {full && <th>Start</th>}
+              {full && <th>Finish</th>}
+              {full && <th>Lunch</th>}
+              <th className="num">Hours</th>
+              {full && <th>Job</th>}
+              {full && <th>Note</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {crew.map((c) => (
+              <tr key={c.user_id || c.name}>
+                <td>{c.name}</td>
+                {full && <td>{fmtTime(c.start_time)}</td>}
+                {full && <td>{fmtTime(c.finish_time)}</td>}
+                {full && <td>{lunchLabel(c.lunch_minutes)}</td>}
+                <td className="num">{fmtHours(c.hours)}</td>
+                {full && <td>{c.job_number && c.job_number !== day.job_number ? c.job_number : ""}</td>}
+                {full && <td>{c.note || ""}</td>}
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={full ? 4 : 1}>Total ({crew.length})</td>
+              <td className="num">{fmtHours(day.total_hours)}</td>
+              {full && <td colSpan={2}></td>}
+            </tr>
+          </tfoot>
+        </table>
+      ) : (
+        <p>No Westaco crew recorded.</p>
+      )}
+
+      <h2 className="cpd-h2">Subcontractors</h2>
+      {subbies.length ? (
+        <table className="cpd-table">
+          <thead>
+            <tr>
+              <th>Company</th>
+              <th className="num">On site</th>
+              {full && <th>Work</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {subbies.map((s, i) => (
+              <tr key={`${s.company}-${i}`}>
+                <td>{s.company}</td>
+                <td className="num">{s.count}</td>
+                {full && <td>{s.note || ""}</td>}
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td>Total</td>
+              <td className="num">{day.subbie_count}</td>
+              {full && <td></td>}
+            </tr>
+          </tfoot>
+        </table>
+      ) : (
+        <p>No subcontractors recorded.</p>
+      )}
+
+      {full && day.notes && (
+        <>
+          <h2 className="cpd-h2">Notes</h2>
+          <div className="cpd-notes">{day.notes}</div>
+        </>
+      )}
+
+      <div className="cpd-sign">
+        <div>Checked by</div>
+        <div>Date</div>
+      </div>
+
+      <div className="cpd-foot">
+        <span>Timesheet Manager – Crew Register</span>
+        <span>Printed {printedAt}</span>
+      </div>
+    </div>
   );
 }
