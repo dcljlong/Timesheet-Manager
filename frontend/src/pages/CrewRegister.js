@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { API, formatApiError, useAuth } from "../App";
 import axios from "axios";
 import { toast } from "sonner";
@@ -647,20 +648,24 @@ function CrewPrintDocument({ day, level, jobDescription, taskLabel, preparedBy }
   });
   const printedAt = new Date().toLocaleString("en-NZ", { dateStyle: "medium", timeStyle: "short" });
 
-  return (
+  // Rendered straight into <body> so the app's wide screen layout can't shrink or
+  // push it down the page when printing.
+  return createPortal(
     <div className="crew-print-doc" data-testid="crew-print-document" aria-hidden="true">
       <style>{`
         .crew-print-doc { display: none; }
         @media print {
-          @page { size: A4 portrait; margin: 12mm; }
-          html, body, #root { background: #fff !important; margin: 0 !important; padding: 0 !important; }
-          body * { visibility: hidden !important; }
-          .crew-print-doc, .crew-print-doc * { visibility: visible !important; }
+          /* Margin 0 drops the browser's own date / URL header and footer. */
+          @page { size: A4 portrait; margin: 0; }
+          html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; width: 210mm !important; height: auto !important; min-height: 0 !important; overflow: visible !important; }
+          body > *:not(.crew-print-doc) { display: none !important; }
           .crew-print-doc {
-            display: block !important; position: absolute; left: 0; top: 0; width: 100%;
-            color: #111827; font-family: "IBM Plex Sans", "Segoe UI", Arial, sans-serif; font-size: 10pt; line-height: 1.35;
+            display: block !important; position: static !important; box-sizing: border-box;
+            width: 210mm; padding: 14mm 14mm 12mm;
+            color: #111827; font-family: "IBM Plex Sans", "Segoe UI", Arial, sans-serif; font-size: 10.5pt; line-height: 1.35;
             print-color-adjust: exact; -webkit-print-color-adjust: exact;
           }
+          .crew-print-doc * { visibility: visible !important; }
           .cpd-head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2.5pt solid #111827; padding-bottom: 3mm; margin-bottom: 4mm; }
           .cpd-eyebrow { font-size: 8pt; letter-spacing: 0.14em; text-transform: uppercase; color: #6b7280; margin: 0 0 1mm; }
           .cpd-title { font-size: 18pt; font-weight: 700; margin: 0; }
@@ -816,6 +821,7 @@ function CrewPrintDocument({ day, level, jobDescription, taskLabel, preparedBy }
         <span>Timesheet Manager – Crew Register</span>
         <span>Printed {printedAt}</span>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
