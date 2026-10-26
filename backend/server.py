@@ -48,6 +48,20 @@ async def app_health_check():
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
+# TIMESHEET MANAGER / SMARTLY EXPORT SWITCH V1
+# Smartly batch export is off unless SMARTLY_EXPORT_ENABLED=true is set on the backend.
+# Payroll setup (staff numbers, pay groups, dept codes) isn't complete, so admin uses
+# the Payroll Review CSV / PDF instead. Turn this on once payroll setup is finished.
+SMARTLY_EXPORT_ENABLED = os.environ.get("SMARTLY_EXPORT_ENABLED", "false").strip().lower() in ("1", "true", "yes", "on")
+
+def _require_smartly_export_enabled():
+    if not SMARTLY_EXPORT_ENABLED:
+        raise HTTPException(status_code=404, detail="Smartly export is switched off")
+
+@api_router.get("/features")
+async def get_features():
+    return {"smartly_export": SMARTLY_EXPORT_ENABLED}
+
 # ==================== MODELS ====================
 
 class UserCreate(BaseModel):
@@ -1745,6 +1759,8 @@ async def get_smartly_export_summary(
     if user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
 
+    _require_smartly_export_enabled()
+
     bundle = await _build_smartly_export_bundle(week_ending=week_ending, pay_group=pay_group)
     return {
         "week_ending": bundle["week_ending"],
@@ -1770,6 +1786,8 @@ async def export_smartly_batch_csv(
     user = await get_current_user(request)
     if user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
+
+    _require_smartly_export_enabled()
 
     bundle = await _build_smartly_export_bundle(week_ending=week_ending, pay_group=pay_group)
 
@@ -1820,7 +1838,7 @@ async def export_smartly_batch_csv(
     return StreamingResponse(
         iter([csv_content]),
         media_type="text/csv",
-        headers={"Content-Disposition": f'attachment; filename=""{filename}""'}
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )
 
 # TIMESHEET MANAGER / PAYROLL EXPORT POLISH V1
