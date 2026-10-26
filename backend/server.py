@@ -3466,6 +3466,327 @@ async def shutdown_db_client():
     client.close()
 
 # Include the router
+
+# ==================== CREW REGISTER ====================
+# TIMESHEET MANAGER / CREW REGISTER V1
+# Foreman/PM records who is on site each day for a job (Westaco crew with hours,
+# subbies by company and headcount) and copies a basic or full message for the
+# office. Stored in db.crew_days, one document per job per date.
+
+class CrewMemberEntry(BaseModel):
+    user_id: Optional[str] = None
+    name: str
+    start_time: Optional[str] = None   # "HH:MM"
+    finish_time: Optional[str] = None  # "HH:MM"
+    lunch_minutes: Optional[int] = 30
+    job_number: Optional[str] = None   # overrides the day's job when set
+    task_code: Optional[str] = None    # overrides the day's task code when set
+    note: Optional[str] = None
+
+class CrewSubbieEntry(BaseModel):
+    company: str
+    count: int = 1
+    note: Optional[str] = None
+
+class CrewDayIn(BaseModel):
+    work_date: str  # "YYYY-MM-DD"
+    job_number: str
+    task_code: Optional[str] = None
+    crew: List[CrewMemberEntry] = []
+    subbies: List[CrewSubbieEntry] = []
+    notes: Optional[str] = None
+
+
+def _crew_minutes(value: Optional[str]) -> Optional[int]:
+    text = (value or "").strip()
+    if not text:
+        return None
+    try:
+        hours, minutes = text.split(":")[:2]
+        hours, minutes = int(hours), int(minutes)
+    except Exception:
+        raise HTTPException(status_code=400, detail=f"Invalid time: {text}")
+    if not (0 <= hours <= 23 and 0 <= minutes <= 59):
+        raise HTTPException(status_code=400, detail=f"Invalid time: {text}")
+    return hours * 60 + minutes
+
+
+def _crew_hours(start: Optional[str], finish: Optional[str], lunch_minutes: Optional[int]) -> float:
+    start_m, finish_m = _crew_minutes(start), _crew_minutes(finish)
+    if start_m is None or finish_m is None:
+        return 0.0
+    if finish_m <= start_m:
+        raise HTTPException(status_code=400, detail="Finish time must be after start time")
+    worked = finish_m - start_m - max(0, int(lunch_minutes or 0))
+    if worked < 0:
+        raise HTTPException(status_code=400, detail="Lunch is longer than the time worked")
+    return round(worked / 60, 2)
+
+
+def _crew_doc_out(doc: dict) -> dict:
+    out = {k: v for k, v in doc.items() if k != "_id"}
+    out["id"] = str(doc["_id"])
+    for key in ("created_at", "updated_at"):
+        if isinstance(out.get(key), datetime):
+            out[key] = out[key].isoformat()
+    return out
+
+
+async def _require_crew_user(request: Request) -> dict:
+    user = await get_current_user(request)
+    if user["role"] not in ("project_manager", "admin"):
+        raise HTTPException(status_code=403, detail="PM or Admin only")
+    return user
+
+
+def _crew_fmt_time(value: Optional[str]) -> str:
+    text = (value or "").strip()
+    if not text:
+        return ""
+    try:
+        h, m = [int(p) for p in text.split(":")[:2]]
+        return f"{h}:{m:02d}"
+    except Exception:
+        return text
+
+
+def _crew_fmt_hours(value) -> str:
+    value = float(value or 0)
+    return f"{value:g}"
+
+
+def build_crew_message(doc: dict, job_description: str = "", level: str = "basic") -> str:
+    try:
+        date_label = datetime.fromisoformat(doc["work_date"]).strftime("%a {d} %b %Y").format(d=datetime.fromisoformat(doc["work_date"]).day)
+    except Exception:
+        date_label = doc.get("work_date", "")
+    job_label = doc.get("job_number", "")
+    if job_description:
+        job_label = f"{job_label} {job_description}"
+
+    crew = doc.get("crew", []) or []
+    subbies = doc.get("subbies", []) or []
+    westaco_count = len(crew)
+    subbie_total = sum(int(s.get("count") or 0) for s in subbies)
+    total = westaco_count + subbie_total
+
+    lines = [f"{job_label} – {date_label}", f"On site: {total}", f"Westaco: {westaco_count}"]
+    for s in subbies:
+        lines.append(f"{s.get('company', '').strip()}: {int(s.get('count') or 0)}")
+
+    if level == "full":
+        if crew:
+            total_hours = sum(float(c.get("hours") or 0) for c in crew)
+            lines.append("")
+            lines.append(f"Westaco crew ({_crew_fmt_hours(total_hours)} hrs):")
+            for c in crew:
+                times = ""
+                if c.get("start_time") and c.get("finish_time"):
+                    times = f" {_crew_fmt_time(c['start_time'])}–{_crew_fmt_time(c['finish_time'])}"
+                extra = []
+                if c.get("job_number") and c.get("job_number") != doc.get("job_number"):
+                    extra.append(f"job {c['job_number']}")
+                if c.get("note"):
+                    extra.append(c["note"].strip())
+                tail = f" – {', '.join(extra)}" if extra else ""
+                lines.append(f"- {c.get('name', '').strip()}{times} ({_crew_fmt_hours(c.get('hours'))}h){tail}")
+        subbies_with_notes = [s for s in subbies if (s.get("note") or "").strip()]
+        if subbies_with_notes:
+            lines.append("")
+            lines.append("Subbies:")
+            for s in subbies_with_notes:
+                lines.append(f"- {s.get('company', '').strip()} ({int(s.get('count') or 0)}): {s['note'].strip()}")
+        if (doc.get("notes") or "").strip():
+            lines.append("")
+            lines.append(f"Notes: {doc['notes'].strip()}")
+
+    return "\n".join(lines)
+
+
+@api_router.get("/crew-register/staff")
+async def crew_register_staff(request: Request):
+    await _require_crew_user(request)
+    users = await db.users.find(
+        {"role": {"$in": ["employee", "project_manager", "admin"]}, "is_pro": {"$ne": True}},
+        {"_id": 1, "name": 1, "role": 1},
+    ).to_list(1000)
+    staff = [{"id": str(u["_id"]), "name": u.get("name", ""), "role": u.get("role", "")} for u in users if u.get("name")]
+    staff.sort(key=lambda s: s["name"].lower())
+    return staff
+
+
+@api_router.get("/crew-register")
+async def list_crew_days(
+    request: Request,
+    work_date: Optional[str] = None,
+    job_number: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+):
+    await _require_crew_user(request)
+    query: dict = {}
+    if work_date:
+        query["work_date"] = work_date
+    elif date_from or date_to:
+        query["work_date"] = {}
+        if date_from:
+            query["work_date"]["$gte"] = date_from
+        if date_to:
+            query["work_date"]["$lte"] = date_to
+    if job_number:
+        query["job_number"] = job_number
+    docs = await db.crew_days.find(query).sort([("work_date", -1), ("job_number", 1)]).to_list(500)
+    return [_crew_doc_out(d) for d in docs]
+
+
+@api_router.post("/crew-register")
+async def save_crew_day(day: CrewDayIn, request: Request):
+    user = await _require_crew_user(request)
+
+    try:
+        datetime.fromisoformat(day.work_date)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date")
+    job_number = (day.job_number or "").strip()
+    if not job_number:
+        raise HTTPException(status_code=400, detail="Job number is required")
+
+    crew = []
+    seen = set()
+    for member in day.crew:
+        name = (member.name or "").strip()
+        if not name:
+            continue
+        key = member.user_id or name.lower()
+        if key in seen:
+            raise HTTPException(status_code=400, detail=f"{name} is listed twice")
+        seen.add(key)
+        row = member.model_dump()
+        row["name"] = name
+        row["hours"] = _crew_hours(member.start_time, member.finish_time, member.lunch_minutes)
+        crew.append(row)
+
+    subbies = []
+    for s in day.subbies:
+        company = (s.company or "").strip()
+        if not company:
+            continue
+        if s.count < 0:
+            raise HTTPException(status_code=400, detail=f"Headcount for {company} can't be negative")
+        subbies.append({"company": company, "count": int(s.count), "note": (s.note or "").strip() or None})
+
+    now = datetime.now(timezone.utc)
+    doc = {
+        "work_date": day.work_date,
+        "job_number": job_number,
+        "task_code": (day.task_code or "").strip() or None,
+        "crew": crew,
+        "subbies": subbies,
+        "notes": (day.notes or "").strip() or None,
+        "westaco_count": len(crew),
+        "subbie_count": sum(s["count"] for s in subbies),
+        "total_on_site": len(crew) + sum(s["count"] for s in subbies),
+        "total_hours": round(sum(c["hours"] for c in crew), 2),
+        "updated_at": now,
+        "updated_by": user["id"],
+        "updated_by_name": user.get("name"),
+    }
+    existing = await db.crew_days.find_one({"work_date": day.work_date, "job_number": job_number})
+    if existing:
+        await db.crew_days.update_one({"_id": existing["_id"]}, {"$set": doc})
+        doc_id = existing["_id"]
+    else:
+        doc["created_at"] = now
+        doc["created_by"] = user["id"]
+        doc_id = (await db.crew_days.insert_one(doc)).inserted_id
+
+    saved = await db.crew_days.find_one({"_id": doc_id})
+    return _crew_doc_out(saved)
+
+
+@api_router.get("/crew-register/export.csv")
+async def export_crew_register_csv(
+    request: Request,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    job_number: Optional[str] = None,
+):
+    await _require_crew_user(request)
+    query: dict = {}
+    if date_from or date_to:
+        query["work_date"] = {}
+        if date_from:
+            query["work_date"]["$gte"] = date_from
+        if date_to:
+            query["work_date"]["$lte"] = date_to
+    if job_number:
+        query["job_number"] = job_number
+    docs = await db.crew_days.find(query).sort([("work_date", 1), ("job_number", 1)]).to_list(5000)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Date", "Job", "Type", "Name / Company", "Start", "Finish", "Lunch (min)", "Hours", "Headcount", "Task Code", "Note"])
+    for d in docs:
+        for c in d.get("crew", []):
+            writer.writerow([
+                d["work_date"], c.get("job_number") or d["job_number"], "Westaco", c.get("name", ""),
+                c.get("start_time") or "", c.get("finish_time") or "", c.get("lunch_minutes") or 0,
+                c.get("hours") or 0, 1, c.get("task_code") or d.get("task_code") or "", c.get("note") or "",
+            ])
+        for s in d.get("subbies", []):
+            writer.writerow([d["work_date"], d["job_number"], "Subbie", s.get("company", ""), "", "", "", "", s.get("count") or 0, "", s.get("note") or ""])
+    csv_content = output.getvalue()
+    output.close()
+
+    span = "_".join(p for p in [date_from, date_to] if p) or "all-dates"
+    filename = f"crew_register_{job_number or 'all-jobs'}_{span}.csv"
+    return StreamingResponse(
+        iter([csv_content]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@api_router.get("/crew-register/{day_id}")
+async def get_crew_day(day_id: str, request: Request):
+    await _require_crew_user(request)
+    try:
+        doc = await db.crew_days.find_one({"_id": ObjectId(day_id)})
+    except Exception:
+        doc = None
+    if not doc:
+        raise HTTPException(status_code=404, detail="Crew day not found")
+    return _crew_doc_out(doc)
+
+
+@api_router.get("/crew-register/{day_id}/message")
+async def get_crew_day_message(day_id: str, request: Request, level: str = "basic"):
+    await _require_crew_user(request)
+    if level not in ("basic", "full"):
+        raise HTTPException(status_code=400, detail="level must be basic or full")
+    try:
+        doc = await db.crew_days.find_one({"_id": ObjectId(day_id)})
+    except Exception:
+        doc = None
+    if not doc:
+        raise HTTPException(status_code=404, detail="Crew day not found")
+    job = await db.job_numbers.find_one({"job_number": doc.get("job_number")})
+    description = (job or {}).get("description", "") or ""
+    return {"level": level, "text": build_crew_message(doc, description, level)}
+
+
+@api_router.delete("/crew-register/{day_id}")
+async def delete_crew_day(day_id: str, request: Request):
+    await _require_crew_user(request)
+    try:
+        result = await db.crew_days.delete_one({"_id": ObjectId(day_id)})
+    except Exception:
+        result = None
+    if not result or result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Crew day not found")
+    return {"message": "Crew day deleted"}
+
+
 app.include_router(api_router)
 
 # CORS
@@ -3501,10 +3822,19 @@ def parse_cors_origins() -> list[str]:
 
     return origins
 
+# TIMESHEET MANAGER / VERCEL PREVIEW CORS V1
+# Lets this project's own Vercel preview builds sign in, so changes can be checked
+# before merging. Override or disable with CORS_ORIGIN_REGEX (empty string = off).
+CORS_ORIGIN_REGEX = os.environ.get(
+    "CORS_ORIGIN_REGEX",
+    r"https://timesheet-manager-[a-z0-9]+-dcljlongs-projects\.vercel\.app",
+).strip() or None
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
     allow_origins=parse_cors_origins(),
+    allow_origin_regex=CORS_ORIGIN_REGEX,
     allow_methods=["*"],
     allow_headers=["*"],
 )
