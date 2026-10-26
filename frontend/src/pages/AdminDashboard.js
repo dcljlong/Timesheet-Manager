@@ -25,6 +25,15 @@ export default function AdminDashboard() {
   const [smartlySummary, setSmartlySummary] = useState(null);
   const [smartlyLoading, setSmartlyLoading] = useState(false);
   const [smartlyExporting, setSmartlyExporting] = useState(false);
+  // TIMESHEET MANAGER / SMARTLY EXPORT SWITCH V1
+  // Hidden unless the backend reports smartly_export: true (SMARTLY_EXPORT_ENABLED).
+  const [smartlyEnabled, setSmartlyEnabled] = useState(false);
+
+  useEffect(() => {
+    axios.get(`${API}/features`)
+      .then((res) => setSmartlyEnabled(Boolean(res.data?.smartly_export)))
+      .catch(() => setSmartlyEnabled(false));
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -411,6 +420,7 @@ export default function AdminDashboard() {
             Export Payroll Review CSV
           </Button>
 
+          {smartlyEnabled && (
           <div className="card p-4 mb-4" data-testid="smartly-export-panel">
             <div className="flex flex-wrap items-end gap-3 mb-4">
               <div>
@@ -513,6 +523,7 @@ export default function AdminDashboard() {
               </div>
             )}
           </div>
+          )}
 
         {/* Filter Tabs */}
         <div className="flex flex-wrap gap-2 mb-4" ref={timesheetReviewRef} data-testid="admin-review-filter-tabs">
