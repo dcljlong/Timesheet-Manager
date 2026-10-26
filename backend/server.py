@@ -132,6 +132,7 @@ class TimeEntry(BaseModel):
     project_manager_id: Optional[str] = None
     description: Optional[str] = None
     other: Optional[str] = None
+    crew_day_id: Optional[str] = None  # set when the entry came from the Crew Register
 
 class DayEntry(BaseModel):
     day: str  # Monday, Tuesday, etc.
@@ -929,6 +930,11 @@ async def create_timesheet(timesheet: TimesheetCreate, request: Request):
 
     days_data = [d.model_dump() for d in timesheet.days]
     validate_timesheet_entries(days_data, require_signature=True, employee_signature=timesheet.employee_signature)
+
+    # TIMESHEET MANAGER / CREW REGISTER TIMESHEET SYNC V1: one timesheet per person per week
+    crew_sheet = await db.timesheets.find_one({"user_id": user["id"], "week_ending": week_ending_value, "source": "crew_register", "status": {"$ne": "voided_test"}})
+    if crew_sheet:
+        raise HTTPException(status_code=400, detail="Your hours for this week are already being entered from the Crew Register")
 
     # Determine which PM(s) are involved
     pm_ids = set()
@@ -3349,7 +3355,7 @@ async def get_dashboard_stats(request: Request):
     user = await get_current_user(request)
 
     if user["role"] == "admin":
-        total = await db.timesheets.count_documents({"status": {"$ne": "voided_test"}})
+        total = await db.timesheets.count_documents({"status": {"$nin": ["voided_test", "draft"]}})
         pending_pm = await db.timesheets.count_documents({"status": "submitted"})
         pending_admin = await db.timesheets.count_documents({"status": "pm_approved"})
         approved = await db.timesheets.count_documents({"status": "approved"})
@@ -3492,6 +3498,7 @@ class CrewDayIn(BaseModel):
     work_date: str  # "YYYY-MM-DD"
     job_number: str
     task_code: Optional[str] = None
+    project_manager_id: Optional[str] = None
     crew: List[CrewMemberEntry] = []
     subbies: List[CrewSubbieEntry] = []
     notes: Optional[str] = None
@@ -3603,6 +3610,137 @@ def build_crew_message(doc: dict, job_description: str = "", level: str = "basic
     return "\n".join(lines)
 
 
+# TIMESHEET MANAGER / CREW REGISTER TIMESHEET SYNC V1
+# Each saved crew day feeds the weekly timesheet of every ticked staff member
+# (one entry per crew day, tagged with crew_day_id). Timesheets made this way are
+# drafts with source "crew_register" until the week is sent for approval. A
+# timesheet the person made themselves, or one already approved, is left alone.
+
+DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+CREW_EDITABLE_STATUSES = ("draft", "submitted", "rejected")
+
+
+def _crew_week_ending(work_date: str) -> str:
+    d = datetime.fromisoformat(work_date).date()
+    return (d + timedelta(days=6 - d.weekday())).isoformat()
+
+
+def _crew_day_name(work_date: str) -> str:
+    return DAY_NAMES[datetime.fromisoformat(work_date).date().weekday()]
+
+
+def _timesheet_total(days: list) -> float:
+    return round(sum(float(e.get("total_hours") or 0) for d in days for e in d.get("entries", [])), 2)
+
+
+async def _sync_crew_day_to_timesheets(day_doc: dict, previous_user_ids: set, user: dict) -> list:
+    crew_day_id = str(day_doc["_id"])
+    week_ending = _crew_week_ending(day_doc["work_date"])
+    day_name = _crew_day_name(day_doc["work_date"])
+    by_user = {c["user_id"]: c for c in day_doc.get("crew", []) if c.get("user_id")}
+    results = []
+
+    for user_id in sorted(set(by_user) | set(previous_user_ids)):
+        member = by_user.get(user_id)
+        try:
+            user_doc = await db.users.find_one({"_id": ObjectId(user_id)})
+        except Exception:
+            user_doc = None
+        if not user_doc:
+            if member:
+                results.append({"name": member["name"], "result": "skipped", "reason": "No user account found"})
+            continue
+        name = user_doc.get("name") or (member or {}).get("name", "")
+
+        ts = await db.timesheets.find_one({"user_id": user_id, "week_ending": week_ending, "status": {"$ne": "voided_test"}})
+        if ts and ts.get("source") != "crew_register":
+            if member:
+                results.append({"name": name, "result": "skipped", "reason": "Has their own timesheet for this week"})
+            continue
+        if ts and ts.get("status") not in CREW_EDITABLE_STATUSES:
+            results.append({"name": name, "result": "skipped", "reason": "Timesheet already approved – change it there"})
+            continue
+        if not ts and not member:
+            continue
+
+        days = ts.get("days") if ts else None
+        if not days:
+            days = [{"day": n, "entries": []} for n in DAY_NAMES]
+        for d in days:
+            d["entries"] = [e for e in d.get("entries", []) if e.get("crew_day_id") != crew_day_id]
+        if member:
+            entry = {
+                "type": "work",
+                "start_time": member.get("start_time"),
+                "lunch_duration": str(int(member.get("lunch_minutes") or 0)),
+                "finish_time": member.get("finish_time"),
+                "total_hours": member.get("hours") or 0,
+                "job_number": member.get("job_number") or day_doc["job_number"],
+                "task_code": member.get("task_code") or day_doc.get("task_code"),
+                "project_manager_id": day_doc.get("project_manager_id"),
+                "description": member.get("note") or None,
+                "other": None,
+                "crew_day_id": crew_day_id,
+            }
+            for d in days:
+                if d.get("day") == day_name:
+                    d["entries"].append(entry)
+                    break
+
+        has_entries = any(d.get("entries") for d in days)
+        now = datetime.now(timezone.utc)
+        pm_ids = sorted({e["project_manager_id"] for d in days for e in d.get("entries", []) if e.get("project_manager_id")})
+
+        if ts and not has_entries:
+            await db.timesheets.delete_one({"_id": ts["_id"]})
+            results.append({"name": name, "result": "removed"})
+            continue
+
+        update = {
+            "days": days,
+            "total_hours": _timesheet_total(days),
+            "pm_ids": pm_ids,
+            "updated_at": now,
+            "crew_last_entered_by": user.get("name"),
+        }
+        if ts:
+            await db.timesheets.update_one({"_id": ts["_id"]}, {"$set": update})
+            results.append({"name": name, "result": "updated", "status": ts.get("status")})
+        else:
+            doc = {
+                "user_id": user_id,
+                "employee_name": name,
+                "week_ending": week_ending,
+                "period_type": "weekly",
+                "messages": None,
+                "nights_away": 0,
+                "employee_signature": None,
+                "status": "draft",
+                "source": "crew_register",
+                "pm_signatures": [],
+                "pm_approved": False,
+                "pm_approved_by": None,
+                "pm_approved_at": None,
+                "admin_approved": False,
+                "admin_approved_by": None,
+                "admin_approved_at": None,
+                "rejection_comment": None,
+                "rejection_audit_trail": [],
+                "deletion_audit_trail": [],
+                "pm_edit_history": [],
+                "pm_edit_count": 0,
+                "created_at": now,
+                **update,
+            }
+            await db.timesheets.insert_one(doc)
+            results.append({"name": name, "result": "created", "status": "draft"})
+
+    for c in day_doc.get("crew", []):
+        if not c.get("user_id"):
+            results.append({"name": c["name"], "result": "skipped", "reason": "Not a user – no timesheet"})
+    return results
+
+
 @api_router.get("/crew-register/staff")
 async def crew_register_staff(request: Request):
     await _require_crew_user(request)
@@ -3675,11 +3813,27 @@ async def save_crew_day(day: CrewDayIn, request: Request):
             raise HTTPException(status_code=400, detail=f"Headcount for {company} can't be negative")
         subbies.append({"company": company, "count": int(s.count), "note": (s.note or "").strip() or None})
 
+    project_manager_id = (day.project_manager_id or "").strip() or None
+    task_code = (day.task_code or "").strip() or None
+    if any(c.get("user_id") for c in crew):
+        if not task_code:
+            raise HTTPException(status_code=400, detail="Pick a task code – it goes on everyone's timesheet")
+        if not project_manager_id:
+            raise HTTPException(status_code=400, detail="Pick a project manager – they approve the timesheets")
+    if project_manager_id:
+        try:
+            pm_doc = await db.project_managers.find_one({"_id": ObjectId(project_manager_id)})
+        except Exception:
+            pm_doc = None
+        if not pm_doc:
+            raise HTTPException(status_code=400, detail="Project manager not found")
+
     now = datetime.now(timezone.utc)
     doc = {
         "work_date": day.work_date,
         "job_number": job_number,
-        "task_code": (day.task_code or "").strip() or None,
+        "task_code": task_code,
+        "project_manager_id": project_manager_id,
         "crew": crew,
         "subbies": subbies,
         "notes": (day.notes or "").strip() or None,
@@ -3692,6 +3846,7 @@ async def save_crew_day(day: CrewDayIn, request: Request):
         "updated_by_name": user.get("name"),
     }
     existing = await db.crew_days.find_one({"work_date": day.work_date, "job_number": job_number})
+    previous_user_ids = {c["user_id"] for c in (existing or {}).get("crew", []) if c.get("user_id")}
     if existing:
         await db.crew_days.update_one({"_id": existing["_id"]}, {"$set": doc})
         doc_id = existing["_id"]
@@ -3701,7 +3856,44 @@ async def save_crew_day(day: CrewDayIn, request: Request):
         doc_id = (await db.crew_days.insert_one(doc)).inserted_id
 
     saved = await db.crew_days.find_one({"_id": doc_id})
-    return _crew_doc_out(saved)
+    sync = await _sync_crew_day_to_timesheets(saved, previous_user_ids, user)
+    out = _crew_doc_out(saved)
+    out["timesheet_sync"] = sync
+    return out
+
+
+@api_router.get("/crew-register/week")
+async def crew_register_week(request: Request, work_date: str):
+    await _require_crew_user(request)
+    try:
+        week_ending = _crew_week_ending(work_date)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid date")
+    docs = await db.timesheets.find({"week_ending": week_ending, "source": "crew_register"}).to_list(1000)
+    rows = [{
+        "id": str(t["_id"]),
+        "employee_name": t.get("employee_name", ""),
+        "total_hours": t.get("total_hours", 0),
+        "status": t.get("status", "draft"),
+        "days_worked": sum(1 for d in t.get("days", []) if d.get("entries")),
+    } for t in docs]
+    rows.sort(key=lambda r: r["employee_name"].lower())
+    return {"week_ending": week_ending, "timesheets": rows}
+
+
+class CrewWeekSubmit(BaseModel):
+    week_ending: str
+
+
+@api_router.post("/crew-register/week/submit")
+async def crew_register_submit_week(body: CrewWeekSubmit, request: Request):
+    user = await _require_crew_user(request)
+    now = datetime.now(timezone.utc)
+    result = await db.timesheets.update_many(
+        {"week_ending": body.week_ending, "source": "crew_register", "status": "draft"},
+        {"$set": {"status": "submitted", "submitted_at": now, "submitted_by_name": user.get("name"), "updated_at": now}},
+    )
+    return {"submitted": result.modified_count}
 
 
 @api_router.get("/crew-register/export.csv")
@@ -3777,14 +3969,17 @@ async def get_crew_day_message(day_id: str, request: Request, level: str = "basi
 
 @api_router.delete("/crew-register/{day_id}")
 async def delete_crew_day(day_id: str, request: Request):
-    await _require_crew_user(request)
+    user = await _require_crew_user(request)
     try:
-        result = await db.crew_days.delete_one({"_id": ObjectId(day_id)})
+        doc = await db.crew_days.find_one({"_id": ObjectId(day_id)})
     except Exception:
-        result = None
-    if not result or result.deleted_count == 0:
+        doc = None
+    if not doc:
         raise HTTPException(status_code=404, detail="Crew day not found")
-    return {"message": "Crew day deleted"}
+    previous = {c["user_id"] for c in doc.get("crew", []) if c.get("user_id")}
+    sync = await _sync_crew_day_to_timesheets({**doc, "crew": []}, previous, user)
+    await db.crew_days.delete_one({"_id": doc["_id"]})
+    return {"message": "Crew day deleted", "timesheet_sync": sync}
 
 
 app.include_router(api_router)
